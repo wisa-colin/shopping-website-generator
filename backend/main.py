@@ -93,5 +93,13 @@ async def get_result(site_id: str):
 async def get_gallery():
     return database.get_all_sites()
 
+@app.delete("/sites/{site_id}")
+async def delete_site(site_id: str):
+    """Delete a site by ID"""
+    deleted = database.delete_site(site_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Site not found")
+    return {"message": "Site deleted successfully"}
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

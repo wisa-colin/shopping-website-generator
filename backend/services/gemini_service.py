@@ -72,24 +72,43 @@ class GeminiService:
         2. **HTML Content ("html" field)**:
            - Max width 1000px, centered.
            - **RESPONSIVE**: Must adapt perfectly to Mobile (320px-767px), Tablet (768px-1023px), and Desktop (1024px+).
-           - **IMAGES**: Use Unsplash images with proper fallback handling:
-             Primary format: https://images.unsplash.com/photo-XXXXXXXXXX?w=800&h=600&fit=crop
-             You can use generic Unsplash photo IDs that are known to work reliably.
+           - **IMAGES - CRITICAL**: Use ONLY Unsplash images with this EXACT format:
+             https://images.unsplash.com/photo-{{{{PHOTO_ID}}}}?w=800&h=600&fit=crop&auto=format
              
-             Here are some reliable Unsplash photo IDs you can use:
-             - 1527004-DJlyEi4a2ck (nature/green)
-             - 1470071-vjsvcNkIvZ0 (product/minimal)
-             - 1441974-dVPqHCHoB2A (lifestyle)
-             - 1522159-h7_wSyjzH8s (cosmetics)
-             - 1556228-yQzzSdRVzNk (natural products)
-             - 1556229-EtHdvNzLRHc (handmade items)
+             Choose from these reliable, high-quality Unsplash photo IDs based on product type:
              
-             Example: <img src="https://images.unsplash.com/photo-1527004-DJlyEi4a2ck?w=800&h=600&fit=crop" 
-                          alt="Product" 
-                          onerror="this.src='https://via.placeholder.com/800x600/f0f0f0/666666?text=Product+Image'" />
+             FOR NATURAL/ORGANIC PRODUCTS (soap, cosmetics, skincare):
+             - 1556228-yQzzSdRVzNk (natural skincare products)
+             - 1556229-EtHdvNzLRHc (handmade natural items)
+             - 1608571-T1_3ItdY70 (spa/wellness products)
+             - 1512290-zZYkO7TmGE (natural cosmetics)
+             - 1571781-5E0d4VqHnE (organic beauty products)
              
-             IMPORTANT: Always include onerror fallback to handle any loading issues.
-             Choose photo IDs that are thematically relevant to the product type when possible.
+             FOR FASHION/ACCESSORIES (bags, clothing, jewelry):
+             - 1490481-_obN3pxNzDg (fashion accessories)
+             - 1434389-jDDG85TgBX0 (handmade leather goods)
+             - 1591047-rHjyB9nGVkQ (artisan products)
+             
+             FOR LIFESTYLE/HOME (candles, decor, gifts):
+             - 1603988-yKqI5Jb4eLA (home decor)
+             - 1510370-3YHfR6VZNq (minimalist products)
+             - 1574271-RRlF0tq1jSs (artisan home goods)
+             
+             FOR FOOD/BEVERAGES:
+             - 1556912-0MrKPe0lNz4 (artisan food products)
+             - 1565958-DgaLmrCdQz4 (organic food items)
+             
+             Example usage:
+             <img src="https://images.unsplash.com/photo-1556228-yQzzSdRVzNk?w=800&h=600&fit=crop&auto=format" 
+                  alt="Natural skincare product" />
+             
+             CRITICAL RULES:
+             - DO NOT use placeholder.com or any other image service
+             - DO NOT use source.unsplash.com (deprecated and causes 404s)
+             - DO NOT include onerror handlers
+             - ONLY use the photo IDs listed above
+             - Choose photo IDs that match the product type
+             - Use different photo IDs for variety (don't repeat the same ID)
              
            - **INTERACTIVITY**: Include interactive elements to enhance user engagement:
              * Smooth scroll animations (fade-in, slide-up on scroll)

@@ -336,25 +336,28 @@ const GalleryPage: React.FC = () => {
                                     <ChevronLeft size={20} />
                                 </button>
 
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                    <button
-                                        key={page}
-                                        onClick={() => goToPage(page)}
-                                        style={{
-                                            padding: '0.5rem 1rem',
-                                            backgroundColor: currentPage === page ? 'black' : 'white',
-                                            color: currentPage === page ? 'white' : '#374151',
-                                            border: '1px solid #e5e7eb',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer',
-                                            fontSize: '0.875rem',
-                                            fontWeight: currentPage === page ? '600' : '400',
-                                            minWidth: '40px'
-                                        }}
-                                    >
-                                        {page}
-                                    </button>
-                                ))}
+                                {[...Array(totalPages)].map((_, index) => {
+                                    const page = index + 1;
+                                    return (
+                                        <button
+                                            key={page}
+                                            onClick={() => goToPage(page)}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                backgroundColor: currentPage === page ? 'black' : 'white',
+                                                color: currentPage === page ? 'white' : '#374151',
+                                                border: '1px solid #e5e7eb',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.875rem',
+                                                fontWeight: currentPage === page ? '600' : '400',
+                                                minWidth: '40px'
+                                            }}
+                                        >
+                                            {page}
+                                        </button>
+                                    );
+                                })}
 
                                 <button
                                     onClick={() => goToPage(currentPage + 1)}

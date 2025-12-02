@@ -183,5 +183,15 @@ def get_all_sites() -> List[Dict[str, Any]]:
     conn.close()
     return result
 
+def delete_site(site_id: str) -> bool:
+    """Delete a site by ID"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('DELETE FROM sites WHERE id = ?', (site_id,))
+    deleted = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
 # Initialize on module load
 init_db()
