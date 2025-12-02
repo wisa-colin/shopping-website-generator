@@ -25,7 +25,8 @@ const GeneratingPage: React.FC = () => {
             try {
                 setStatus('AI가 당신만의 쇼핑몰을 디자인하고 있습니다...');
 
-                const res = await fetch('http://localhost:8000/generate', {
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                const res = await fetch(`${API_URL}/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -43,7 +44,7 @@ const GeneratingPage: React.FC = () => {
                 // Poll for completion
                 setStatus('코드를 작성하고 있습니다...');
                 const pollInterval = setInterval(async () => {
-                    const resultRes = await fetch(`http://localhost:8000/results/${siteId}`);
+                    const resultRes = await fetch(`${API_URL}/results/${siteId}`);
                     if (resultRes.ok) {
                         const site = await resultRes.json();
                         if (site.status === 'completed') {

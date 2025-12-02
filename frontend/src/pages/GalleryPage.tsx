@@ -21,7 +21,8 @@ const GalleryPage: React.FC = () => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const res = await fetch('http://localhost:8000/gallery');
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                const res = await fetch(`${API_URL}/gallery`);
                 if (res.ok) {
                     const data = await res.json();
                     setSites(data);

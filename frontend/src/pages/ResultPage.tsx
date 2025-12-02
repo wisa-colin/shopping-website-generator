@@ -21,7 +21,8 @@ const ResultPage: React.FC = () => {
     useEffect(() => {
         const fetchSite = async () => {
             try {
-                const res = await fetch(`http://localhost:8000/results/${id}`);
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                const res = await fetch(`${API_URL}/results/${id}`);
                 if (res.ok) {
                     const data = await res.json();
                     setSite(data);
@@ -73,7 +74,8 @@ const ResultPage: React.FC = () => {
         if (!confirmed) return;
 
         try {
-            const res = await fetch(`http://localhost:8000/sites/${site.id}`, {
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${API_URL}/sites/${site.id}`, {
                 method: 'DELETE'
             });
 
