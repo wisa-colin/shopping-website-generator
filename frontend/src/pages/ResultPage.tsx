@@ -66,6 +66,29 @@ const ResultPage: React.FC = () => {
         navigator.clipboard.writeText(text);
     };
 
+    const handleDelete = async () => {
+        if (!site) return;
+
+        const confirmed = window.confirm('정말로 이 사이트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+        if (!confirmed) return;
+
+        try {
+            const res = await fetch(`http://localhost:8000/sites/${site.id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                alert('사이트가 삭제되었습니다.');
+                navigate('/gallery');
+            } else {
+                alert('삭제 중 오류가 발생했습니다.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    };
+
     return (
         <div style={{
             width: '100vw',
@@ -178,20 +201,37 @@ const ResultPage: React.FC = () => {
                     </button>
                 </div>
 
-                <button onClick={handleDownload} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 1rem',
-                    backgroundColor: 'black',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                }}>
-                    <Download size={16} /> 다운로드
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button onClick={handleDownload} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: 'black',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                    }}>
+                        <Download size={16} /> 다운로드
+                    </button>
+
+                    <button onClick={handleDelete} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#dc2626',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                    }}>
+                        <X size={16} /> 삭제
+                    </button>
+                </div>
             </div>
 
             {/* Main Preview - Full Browser Width */}
