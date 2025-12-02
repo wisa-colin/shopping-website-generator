@@ -49,112 +49,52 @@ class GeminiService:
         prompt = f"""
         You are a world-class UI/UX designer and frontend developer.
         
-        **Goal**: Create a responsive shopping website for a product and explain your design choices.
+        Create a responsive shopping website for: {product_type}
+        Design style: {design_style}
+        Reference URL: {reference_url}
         
-        **Input Details**:
-        - Product Type: {product_type}
-        - Design Style/Description: {design_style}
-        - Reference URL: {reference_url}
+        CRITICAL OUTPUT FORMAT - Return ONLY valid JSON (no markdown, no code fences):
+        {{
+          "html": "complete HTML code here",
+          "explanation": "1-2 sentences in Korean about design choice",
+          "key_points": ["point 1", "point 2", "point 3"],
+          "color_palette": ["#hex1", "#hex2", "#hex3", "#hex4"]
+        }}
         
-        **CRITICAL: REFERENCE URL ANALYSIS**
-        If a reference URL is provided (not "None"), you MUST mention in your "explanation" whether you were able to consider it.
-        Example: "레퍼런스 사이트의 미니멀한 레이아웃을 참고하여 디자인했습니다." or "레퍼런스 URL을 참고할 수 없었지만..."
+        HTML REQUIREMENTS:
+        - Max width 1000px, centered, fully responsive
+        - Mobile (320-767px), Tablet (768-1023px), Desktop (1024px+)
+        - ALL text in Korean
+        - Embedded CSS and JavaScript only
         
-        **CRITICAL REQUIREMENTS**:
-        1. **Output Format**: Return a valid **JSON object** (no markdown fencing) with the following structure:
-           {{
-             "html": "<!DOCTYPE html>...", 
-             "explanation": "MAXIMUM 1-2 sentences explaining the design choice AND mentioning if reference URL was considered.",
-             "key_points": ["Point 1", "Point 2", "Point 3"],
-             "color_palette": ["#Hex1", "#Hex2", "#Hex3", "#Hex4", "#Hex5"]
-           }}
+        IMAGE REQUIREMENTS - CRITICAL:
+        Use Lorem Flickr for REAL PHOTOS based on product keywords.
+        Format: https://loremflickr.com/800/600/keyword1,keyword2,keyword3
         
-        2. **HTML Content ("html" field)**:
-           - Max width 1000px, centered.
-           - **RESPONSIVE**: Must adapt perfectly to Mobile (320px-767px), Tablet (768px-1023px), and Desktop (1024px+).
-           
-           - **IMAGES - ABSOLUTE CRITICAL REQUIREMENTS**:
-             ⚠️ MUST USE REAL PHOTOGRAPHS ONLY - NO ICONS, NO ILLUSTRATIONS, NO PLACEHOLDERS
-             
-             Use Lorem Flickr which provides REAL PHOTOS from Flickr based on keywords:
-             Format: https://loremflickr.com/WIDTH/HEIGHT/KEYWORD1,KEYWORD2
-             
-             **KEYWORD SELECTION RULES** (CRITICAL):
-             - Choose keywords that EXACTLY match the product type
-             - Use specific, descriptive keywords (not generic terms)
-             - Multiple keywords separated by commas (no spaces)
-             - Keywords should be in English
-             
-             **EXAMPLES BY PRODUCT TYPE**:
-             
-             Natural/Organic Soap:
-             - https://loremflickr.com/800/600/soap,natural,handmade
-             - https://loremflickr.com/800/600/spa,organic,wellness
-             
-             Cosmetics/Beauty Products:
-             - https://loremflickr.com/800/600/cosmetics,beauty,skincare
-             - https://loremflickr.com/800/600/makeup,organic,natural
-             
-             Food Products:
-             - https://loremflickr.com/800/600/food,gourmet,artisan
-             - https://loremflickr.com/800/600/sauce,cooking,kitchen
-             
-             Fashion/Bags:
-             - https://loremflickr.com/800/600/handbag,leather,fashion
-             - https://loremflickr.com/800/600/bag,accessory,style
-             
-             Candles:
-             - https://loremflickr.com/800/600/candle,aromatherapy,home
-             - https://loremflickr.com/800/600/candle,decor,ambiance
-             
-             Pet Products:
-             - https://loremflickr.com/800/600/dog,pet,puppy
-             - https://loremflickr.com/800/600/cat,pet,kitten
-             
-             **CRITICAL RULES**:
-             1. ALWAYS analyze the product type and choose relevant keywords
-             2. Use different keyword combinations for variety (e.g., first image: soap,natural,spa / second image: soap,handmade,organic)
-             3. Keep keywords specific and directly related to the product
-             4. NO generic keywords like "product" or "item"
-             5. Each image must use different dimensions or keyword combinations for cache-busting
-             
-             **Example HTML**:
-             ```html
-             <img src="https://loremflickr.com/800/600/soap,natural,handmade" 
-                  alt="천연 수제 비누" 
-                  loading="lazy"
-                  style="width: 100%; border-radius: 12px;" />
-             ```
-             
-             **For Multiple Images**:
-             Use slightly different keywords or dimensions:
-             - Image 1: https://loremflickr.com/800/600/soap,natural,spa
-             - Image 2: https://loremflickr.com/800/500/soap,handmade,organic  
-             - Image 3: https://loremflickr.com/700/600/soap,artisan,wellness
-             
-           - **INTERACTIVITY**: Include interactive elements to enhance user engagement:
-             * Smooth scroll animations (fade-in, slide-up on scroll)
-             * Hover effects on images (zoom, overlay effects)
-             * Animated navigation menu (hamburger menu for mobile)
-             * Product image gallery with click-to-enlarge or carousel
-             * Smooth transitions between sections
-             * Interactive shopping cart icon with badge animation
-             * Form validation with visual feedback
-             Use vanilla JavaScript for all interactions - NO external libraries.
-             
-           - **Language**: ALL text content in Korean.
-           - **Quality**: "World Class", award-winning e-commerce design with modern interactions.
-           - **Self-contained**: All CSS and JS must be embedded in the HTML.
+        Choose keywords that match the product type exactly:
+        - For soap: soap,natural,handmade or spa,organic,wellness
+        - For cosmetics: cosmetics,beauty,skincare or makeup,organic,natural
+        - For food: food,gourmet,artisan or sauce,cooking,kitchen
+        - For bags: handbag,leather,fashion or bag,accessory,style
+        - For candles: candle,aromatherapy,home or candle,decor,ambiance
+        - For pet products: dog,pet,puppy or cat,pet,kitten
         
-        3. **Design Rationale**:
-           - "explanation": 1-2 sentences in Korean, MUST mention reference URL consideration if provided.
-           - "key_points": 3-5 key design decisions in Korean.
-           - "color_palette": Extract 4-5 main hex color codes used in the design (MUST include this!).
+        Use different keyword combinations for each image for variety.
+        Example: First image uses soap,natural,spa and second uses soap,handmade,organic
         
-        **Design Direction**:
-        - Analyze the product type and create an appropriate shopping experience.
-        - If reference URL provided, try to incorporate similar design philosophy.
-        - Use modern design trends: clean typography, ample whitespace, high-quality imagery.
+        INTERACTIVE FEATURES:
+        - Smooth scroll animations
+        - Hover effects on images and buttons
+        - Hamburger menu for mobile
+        - Shopping cart with badge animation
+        - All interactions in vanilla JavaScript
+        
+        DESIGN RATIONALE:
+        - If reference URL provided, mention if you considered it in explanation (in Korean)
+        - Provide 3-5 key design decisions in Korean
+        - Extract 4-5 main hex color codes from your design
+        
+        Remember: Output ONLY the JSON object, no other text.
         """
         
         try:
@@ -168,8 +108,14 @@ class GeminiService:
             
             # Remove markdown fencing if present
             if raw_text.startswith("```"):
+                # Find the actual JSON content
                 lines = raw_text.split('\n')
-                raw_text = '\n'.join(lines[1:-1]) if len(lines) > 2 else raw_text
+                # Skip first line (```json or ```) and last line (```)
+                if len(lines) > 2:
+                    raw_text = '\n'.join(lines[1:-1])
+                    # Also remove any remaining partial fencing
+                    if raw_text.startswith("json"):
+                        raw_text = raw_text[4:].strip()
             
             # Parse JSON
             try:
@@ -182,6 +128,18 @@ class GeminiService:
             except json.JSONDecodeError as e:
                 print(f"[{datetime.now()}] JSON parsing error: {e}")
                 print(f"[{datetime.now()}] Raw text preview: {raw_text[:500]}...")
+                # Try to find and extract JSON from the response
+                try:
+                    # Look for JSON object boundaries
+                    start = raw_text.find('{')
+                    end = raw_text.rfind('}') + 1
+                    if start != -1 and end > start:
+                        json_str = raw_text[start:end]
+                        result = json.loads(json_str)
+                        print(f"[{datetime.now()}] Successfully extracted and parsed JSON")
+                        return result
+                except:
+                    pass
                 raise ValueError(f"Failed to parse Gemini response as JSON: {str(e)}")
                 
         except Exception as e:
