@@ -72,45 +72,76 @@ class GeminiService:
         2. **HTML Content ("html" field)**:
            - Max width 1000px, centered.
            - **RESPONSIVE**: Must adapt perfectly to Mobile (320px-767px), Tablet (768px-1023px), and Desktop (1024px+).
-           - **IMAGES - CRITICAL INSTRUCTIONS**:
-             Use Unsplash source API with specific, relevant keywords for the product type.
+           
+           - **IMAGES - ABSOLUTE CRITICAL REQUIREMENTS**:
+             ⚠️ MUST USE REAL PHOTOGRAPHS ONLY - NO ICONS, NO ILLUSTRATIONS, NO PLACEHOLDERS
              
-             Format: https://source.unsplash.com/800x600/?keyword1,keyword2,keyword3
+             Use Lorem Flickr which provides REAL PHOTOS from Flickr based on keywords:
+             Format: https://loremflickr.com/WIDTH/HEIGHT/KEYWORD1,KEYWORD2
              
-             RULES FOR CHOOSING KEYWORDS:
-             1. First keyword: Main product category (e.g., "cosmetics", "soap", "food", "fashion")
-             2. Second keyword: Product characteristic (e.g., "natural", "organic", "handmade", "artisan")
-             3. Third keyword: Visual style (e.g., "minimal", "elegant", "rustic", "modern")
+             **KEYWORD SELECTION RULES** (CRITICAL):
+             - Choose keywords that EXACTLY match the product type
+             - Use specific, descriptive keywords (not generic terms)
+             - Multiple keywords separated by commas (no spaces)
+             - Keywords should be in English
              
-             EXAMPLES:
-             - For natural soap: https://source.unsplash.com/800x600/?soap,natural,spa
-             - For organic cosmetics: https://source.unsplash.com/800x600/?cosmetics,organic,beauty
-             - For handmade bags: https://source.unsplash.com/800x600/?bag,handmade,leather
-             - For artisan sauce: https://source.unsplash.com/800x600/?sauce,artisan,food
-             - For candles: https://source.unsplash.com/800x600/?candle,home,decor
+             **EXAMPLES BY PRODUCT TYPE**:
              
-             IMPORTANT GUIDELINES:
-             - Choose keywords directly related to the product type
-             - Use descriptive, specific keywords (not generic like "product" or "item")
-             - Vary keywords slightly for different images on the same page
-             - Add visual style keywords to get aesthetically pleasing images
-             - DO NOT use photo IDs, ONLY use keywords
-             - The source.unsplash.com API will automatically provide relevant, high-quality images
+             Natural/Organic Soap:
+             - https://loremflickr.com/800/600/soap,natural,handmade
+             - https://loremflickr.com/800/600/spa,organic,wellness
              
-             Example HTML:
-             <img src="https://source.unsplash.com/800x600/?soap,natural,spa" 
-                  alt="Natural handmade soap" 
-                  loading="lazy" />
+             Cosmetics/Beauty Products:
+             - https://loremflickr.com/800/600/cosmetics,beauty,skincare
+             - https://loremflickr.com/800/600/makeup,organic,natural
+             
+             Food Products:
+             - https://loremflickr.com/800/600/food,gourmet,artisan
+             - https://loremflickr.com/800/600/sauce,cooking,kitchen
+             
+             Fashion/Bags:
+             - https://loremflickr.com/800/600/handbag,leather,fashion
+             - https://loremflickr.com/800/600/bag,accessory,style
+             
+             Candles:
+             - https://loremflickr.com/800/600/candle,aromatherapy,home
+             - https://loremflickr.com/800/600/candle,decor,ambiance
+             
+             Pet Products:
+             - https://loremflickr.com/800/600/dog,pet,puppy
+             - https://loremflickr.com/800/600/cat,pet,kitten
+             
+             **CRITICAL RULES**:
+             1. ALWAYS analyze the product type and choose relevant keywords
+             2. Use different keyword combinations for variety (e.g., first image: soap,natural,spa / second image: soap,handmade,organic)
+             3. Keep keywords specific and directly related to the product
+             4. NO generic keywords like "product" or "item"
+             5. Each image must use different dimensions or keyword combinations for cache-busting
+             
+             **Example HTML**:
+             ```html
+             <img src="https://loremflickr.com/800/600/soap,natural,handmade" 
+                  alt="천연 수제 비누" 
+                  loading="lazy"
+                  style="width: 100%; border-radius: 12px;" />
+             ```
+             
+             **For Multiple Images**:
+             Use slightly different keywords or dimensions:
+             - Image 1: https://loremflickr.com/800/600/soap,natural,spa
+             - Image 2: https://loremflickr.com/800/500/soap,handmade,organic  
+             - Image 3: https://loremflickr.com/700/600/soap,artisan,wellness
              
            - **INTERACTIVITY**: Include interactive elements to enhance user engagement:
              * Smooth scroll animations (fade-in, slide-up on scroll)
-             * Hover effects on images and buttons (zoom, overlay, transform)
+             * Hover effects on images (zoom, overlay effects)
              * Animated navigation menu (hamburger menu for mobile)
              * Product image gallery with click-to-enlarge or carousel
              * Smooth transitions between sections
              * Interactive shopping cart icon with badge animation
              * Form validation with visual feedback
              Use vanilla JavaScript for all interactions - NO external libraries.
+             
            - **Language**: ALL text content in Korean.
            - **Quality**: "World Class", award-winning e-commerce design with modern interactions.
            - **Self-contained**: All CSS and JS must be embedded in the HTML.
