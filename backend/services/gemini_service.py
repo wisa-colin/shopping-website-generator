@@ -1,51 +1,47 @@
 import google.generativeai as genai
 import os
+import json
 import time
-from datetime import datetime, timedelta
-import asyncio
+from datetime import datetime
+from typing import Dict, Any
 
 class GeminiService:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            print("Warning: GEMINI_API_KEY not found in environment variables.")
-        else:
-            genai.configure(api_key=self.api_key)
+        # Get API key from environment
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not found in environment variables")
         
-        # Model configuration
-        # Using gemini-1.5-pro as a fallback if 3.0 is not directly available via alias, 
-        # but user requested 3.0 pro preview.
-        self.model_name = "gemini-1.5-pro-latest" # Placeholder, will try to use 3.0 if valid
-        # Note: As of now, exact string for 3.0 might be 'models/gemini-3.0-pro-preview' or similar.
-        # We will allow environment variable override.
-        if os.getenv("GEMINI_MODEL"):
-            self.model_name = os.getenv("GEMINI_MODEL")
-
-        self.model = genai.GenerativeModel(self.model_name)
+        # Configure Gemini
+        genai.configure(api_key=api_key)
         
-        # Rate Limiting State
-        self.request_timestamps = []
-        self.daily_requests = 0
-        self.last_reset_date = datetime.now().date()
-
+        # Get model name from environment or use default
+        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+        print(f"Using Gemini model: {model_name}")
+        
+        # Initialize model with generation config
+        self.model = genai.GenerativeModel(
+            model_name=model_name,
+            generation_config={
+                "temperature": 0.9,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+            }
+        )
+        
+        # Rate limiting
+        self.last_request_time = 0
+        self.min_request_interval = 1.0  # seconds
+    
     def _check_rate_limits(self):
-        now = datetime.now()
-        
-        # Reset daily counter if new day
-        if now.date() > self.last_reset_date:
-            self.daily_requests = 0
-            self.last_reset_date = now.date()
-            
-        # Check Daily Limit (1000)
-        if self.daily_requests >= 1000:
-            raise Exception("Daily request limit reached (1000).")
-
-        # Check Minute Limit (50 RPM)
-        # Filter timestamps within last minute
-        self.request_timestamps = [t for t in self.request_timestamps if now - t < timedelta(minutes=1)]
-        if len(self.request_timestamps) >= 50:
-            raise Exception("Minute request limit reached (50 RPM).")
-
+        """Simple rate limiting to avoid hitting API limits"""
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        if time_since_last < self.min_request_interval:
+            time.sleep(self.min_request_interval - time_since_last)
+        self.last_request_time = time.time()
+    
     async def generate_website_content(self, product_type: str, reference_url: str, design_style: str) -> dict:
         print(f"[{datetime.now()}] Received generation request for: {product_type}")
         self._check_rate_limits()
@@ -76,9 +72,12 @@ class GeminiService:
         2. **HTML Content ("html" field)**:
            - Max width 1000px, centered.
            - **RESPONSIVE**: Must adapt perfectly to Mobile (320px-767px), Tablet (768px-1023px), and Desktop (1024px+).
-           - **IMAGES**: Use ONLY Unsplash URLs in this format: https://source.unsplash.com/800x600/?{{keyword}}
-             Example: <img src="https://source.unsplash.com/800x600/?soap,organic" alt="...">
-             Choose relevant keywords based on the product type.
+           - **IMAGES**: Use reliable placeholder images from picsum.photos:
+             Format: https://picsum.photos/800/600?random=N (where N is a number 1-100)
+             Use different random numbers for different images to ensure variety.
+             Example: <img src="https://picsum.photos/800/600?random=1" alt="Product image">
+             IMPORTANT: This ensures all images load successfully without 404 errors.
+             DO NOT use source.unsplash.com as it returns many 404 errors.
            - **INTERACTIVITY**: Include interactive elements to enhance user engagement:
              * Smooth scroll animations (fade-in, slide-up on scroll)
              * Hover effects on images and buttons (zoom, overlay, transform)
@@ -104,33 +103,35 @@ class GeminiService:
         """
         
         try:
-            print(f"[{datetime.now()}] Sending request to Gemini ({self.model_name})...")
+            print(f"[{datetime.now()}] Sending request to Gemini API...")
+            response = self.model.generate_content(prompt)
+            print(f"[{datetime.now()}] Received response from Gemini")
             
-            response = await asyncio.to_thread(
-                self.model.generate_content,
-                prompt,
-                generation_config={"response_mime_type": "application/json"}
-            )
+            # Extract text
+            raw_text = response.text.strip()
+            print(f"[{datetime.now()}] Raw response length: {len(raw_text)} chars")
             
-            print(f"[{datetime.now()}] Response received from Gemini.")
-            self.request_timestamps.append(datetime.now())
-            self.daily_requests += 1
+            # Remove markdown fencing if present
+            if raw_text.startswith("```"):
+                lines = raw_text.split('\n')
+                raw_text = '\n'.join(lines[1:-1]) if len(lines) > 2 else raw_text
             
-            # Parse JSON response
-            import json
+            # Parse JSON
             try:
-                return json.loads(response.text)
-            except json.JSONDecodeError:
-                print("Failed to parse JSON from Gemini, returning raw text as HTML fallback")
-                return {
-                    "html": response.text,
-                    "explanation": "자동 생성된 설명이 없습니다.",
-                    "key_points": [],
-                    "color_palette": []
-                }
+                result = json.loads(raw_text)
+                print(f"[{datetime.now()}] Successfully parsed JSON response")
+                print(f"[{datetime.now()}] HTML length: {len(result.get('html', ''))} chars")
+                print(f"[{datetime.now()}] Explanation: {result.get('explanation', 'N/A')}")
+                print(f"[{datetime.now()}] Color palette: {result.get('color_palette', [])}")
+                return result
+            except json.JSONDecodeError as e:
+                print(f"[{datetime.now()}] JSON parsing error: {e}")
+                print(f"[{datetime.now()}] Raw text preview: {raw_text[:500]}...")
+                raise ValueError(f"Failed to parse Gemini response as JSON: {str(e)}")
                 
         except Exception as e:
-            print(f"[{datetime.now()}] Gemini API Error: {e}")
-            raise e
+            print(f"[{datetime.now()}] Error during generation: {type(e).__name__}: {str(e)}")
+            raise
 
+# Create singleton instance
 gemini_service = GeminiService()
