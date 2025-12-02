@@ -72,43 +72,35 @@ class GeminiService:
         2. **HTML Content ("html" field)**:
            - Max width 1000px, centered.
            - **RESPONSIVE**: Must adapt perfectly to Mobile (320px-767px), Tablet (768px-1023px), and Desktop (1024px+).
-           - **IMAGES - CRITICAL**: Use ONLY Unsplash images with this EXACT format:
-             https://images.unsplash.com/photo-{{{{PHOTO_ID}}}}?w=800&h=600&fit=crop&auto=format
+           - **IMAGES - CRITICAL INSTRUCTIONS**:
+             Use Unsplash source API with specific, relevant keywords for the product type.
              
-             Choose from these reliable, high-quality Unsplash photo IDs based on product type:
+             Format: https://source.unsplash.com/800x600/?keyword1,keyword2,keyword3
              
-             FOR NATURAL/ORGANIC PRODUCTS (soap, cosmetics, skincare):
-             - 1556228-yQzzSdRVzNk (natural skincare products)
-             - 1556229-EtHdvNzLRHc (handmade natural items)
-             - 1608571-T1_3ItdY70 (spa/wellness products)
-             - 1512290-zZYkO7TmGE (natural cosmetics)
-             - 1571781-5E0d4VqHnE (organic beauty products)
+             RULES FOR CHOOSING KEYWORDS:
+             1. First keyword: Main product category (e.g., "cosmetics", "soap", "food", "fashion")
+             2. Second keyword: Product characteristic (e.g., "natural", "organic", "handmade", "artisan")
+             3. Third keyword: Visual style (e.g., "minimal", "elegant", "rustic", "modern")
              
-             FOR FASHION/ACCESSORIES (bags, clothing, jewelry):
-             - 1490481-_obN3pxNzDg (fashion accessories)
-             - 1434389-jDDG85TgBX0 (handmade leather goods)
-             - 1591047-rHjyB9nGVkQ (artisan products)
+             EXAMPLES:
+             - For natural soap: https://source.unsplash.com/800x600/?soap,natural,spa
+             - For organic cosmetics: https://source.unsplash.com/800x600/?cosmetics,organic,beauty
+             - For handmade bags: https://source.unsplash.com/800x600/?bag,handmade,leather
+             - For artisan sauce: https://source.unsplash.com/800x600/?sauce,artisan,food
+             - For candles: https://source.unsplash.com/800x600/?candle,home,decor
              
-             FOR LIFESTYLE/HOME (candles, decor, gifts):
-             - 1603988-yKqI5Jb4eLA (home decor)
-             - 1510370-3YHfR6VZNq (minimalist products)
-             - 1574271-RRlF0tq1jSs (artisan home goods)
+             IMPORTANT GUIDELINES:
+             - Choose keywords directly related to the product type
+             - Use descriptive, specific keywords (not generic like "product" or "item")
+             - Vary keywords slightly for different images on the same page
+             - Add visual style keywords to get aesthetically pleasing images
+             - DO NOT use photo IDs, ONLY use keywords
+             - The source.unsplash.com API will automatically provide relevant, high-quality images
              
-             FOR FOOD/BEVERAGES:
-             - 1556912-0MrKPe0lNz4 (artisan food products)
-             - 1565958-DgaLmrCdQz4 (organic food items)
-             
-             Example usage:
-             <img src="https://images.unsplash.com/photo-1556228-yQzzSdRVzNk?w=800&h=600&fit=crop&auto=format" 
-                  alt="Natural skincare product" />
-             
-             CRITICAL RULES:
-             - DO NOT use placeholder.com or any other image service
-             - DO NOT use source.unsplash.com (deprecated and causes 404s)
-             - DO NOT include onerror handlers
-             - ONLY use the photo IDs listed above
-             - Choose photo IDs that match the product type
-             - Use different photo IDs for variety (don't repeat the same ID)
+             Example HTML:
+             <img src="https://source.unsplash.com/800x600/?soap,natural,spa" 
+                  alt="Natural handmade soap" 
+                  loading="lazy" />
              
            - **INTERACTIVITY**: Include interactive elements to enhance user engagement:
              * Smooth scroll animations (fade-in, slide-up on scroll)
