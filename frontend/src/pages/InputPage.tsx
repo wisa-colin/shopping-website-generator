@@ -126,18 +126,6 @@ const InputPage: React.FC = () => {
                             animation: 'fadeIn 0.3s ease-in'
                         }}>
                             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                                <div style={{
-                                    width: '64px',
-                                    height: '64px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#f3f4f6',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto 1rem auto'
-                                }}>
-                                    <span style={{ fontSize: '2rem' }}>🛍️</span>
-                                </div>
                                 <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0 0 0.5rem 0', color: '#111827' }}>
                                     어떤 상품을 판매하시나요?
                                 </h2>
@@ -150,7 +138,7 @@ const InputPage: React.FC = () => {
                                 type="text"
                                 value={formData.productType}
                                 onChange={(e) => setFormData({ ...formData, productType: e.target.value })}
-                                placeholder="예: 수제 비누, 친환경 화장품, 수공예 가방"
+                                placeholder="예: 천연 재료로 만든 수제 비누"
                                 autoFocus
                                 onKeyPress={(e) => e.key === 'Enter' && handleNext()}
                                 style={{
@@ -179,18 +167,6 @@ const InputPage: React.FC = () => {
                             animation: 'fadeIn 0.3s ease-in'
                         }}>
                             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                                <div style={{
-                                    width: '64px',
-                                    height: '64px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#f3f4f6',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto 1rem auto'
-                                }}>
-                                    <span style={{ fontSize: '2rem' }}>🎨</span>
-                                </div>
                                 <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0 0 0.5rem 0', color: '#111827' }}>
                                     어떤 디자인을 원하시나요?
                                 </h2>
@@ -202,7 +178,7 @@ const InputPage: React.FC = () => {
                             <textarea
                                 value={formData.designStyle}
                                 onChange={(e) => setFormData({ ...formData, designStyle: e.target.value })}
-                                placeholder="예: 자연스럽고 따뜻한 느낌, 미니멀한 디자인, 레트로 스타일 등"
+                                placeholder="예: 전체적으로 자연스러운 베이지 톤으로 따뜻한 느낌을 주고, 상품 이미지가 돋보이도록 깔끔한 레이아웃을 원합니다. 모바일에서도 쉽게 탐색할 수 있으면 좋겠습니다."
                                 rows={6}
                                 autoFocus
                                 style={{
@@ -233,18 +209,6 @@ const InputPage: React.FC = () => {
                             animation: 'fadeIn 0.3s ease-in'
                         }}>
                             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                                <div style={{
-                                    width: '64px',
-                                    height: '64px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#f3f4f6',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto 1rem auto'
-                                }}>
-                                    <span style={{ fontSize: '2rem' }}>🔗</span>
-                                </div>
                                 <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0 0 0.5rem 0', color: '#111827' }}>
                                     레퍼런스가 있나요?
                                 </h2>
@@ -257,7 +221,7 @@ const InputPage: React.FC = () => {
                                 type="url"
                                 value={formData.referenceUrl}
                                 onChange={(e) => setFormData({ ...formData, referenceUrl: e.target.value })}
-                                placeholder="https://example.com"
+                                placeholder="예: https://www.example-shop.com"
                                 autoFocus
                                 onKeyPress={(e) => e.key === 'Enter' && handleNext()}
                                 style={{

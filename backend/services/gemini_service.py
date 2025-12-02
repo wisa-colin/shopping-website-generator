@@ -72,12 +72,25 @@ class GeminiService:
         2. **HTML Content ("html" field)**:
            - Max width 1000px, centered.
            - **RESPONSIVE**: Must adapt perfectly to Mobile (320px-767px), Tablet (768px-1023px), and Desktop (1024px+).
-           - **IMAGES**: Use reliable placeholder images from picsum.photos:
-             Format: https://picsum.photos/800/600?random=N (where N is a number 1-100)
-             Use different random numbers for different images to ensure variety.
-             Example: <img src="https://picsum.photos/800/600?random=1" alt="Product image">
-             IMPORTANT: This ensures all images load successfully without 404 errors.
-             DO NOT use source.unsplash.com as it returns many 404 errors.
+           - **IMAGES**: Use Unsplash images with proper fallback handling:
+             Primary format: https://images.unsplash.com/photo-XXXXXXXXXX?w=800&h=600&fit=crop
+             You can use generic Unsplash photo IDs that are known to work reliably.
+             
+             Here are some reliable Unsplash photo IDs you can use:
+             - 1527004-DJlyEi4a2ck (nature/green)
+             - 1470071-vjsvcNkIvZ0 (product/minimal)
+             - 1441974-dVPqHCHoB2A (lifestyle)
+             - 1522159-h7_wSyjzH8s (cosmetics)
+             - 1556228-yQzzSdRVzNk (natural products)
+             - 1556229-EtHdvNzLRHc (handmade items)
+             
+             Example: <img src="https://images.unsplash.com/photo-1527004-DJlyEi4a2ck?w=800&h=600&fit=crop" 
+                          alt="Product" 
+                          onerror="this.src='https://via.placeholder.com/800x600/f0f0f0/666666?text=Product+Image'" />
+             
+             IMPORTANT: Always include onerror fallback to handle any loading issues.
+             Choose photo IDs that are thematically relevant to the product type when possible.
+             
            - **INTERACTIVITY**: Include interactive elements to enhance user engagement:
              * Smooth scroll animations (fade-in, slide-up on scroll)
              * Hover effects on images and buttons (zoom, overlay, transform)
