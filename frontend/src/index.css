@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+:root {
+  --color-bg: #ffffff;
+  --color-text: #111111;
+  --color-accent: #000000;
+  --color-gray: #f5f5f5;
+  --border-radius: 12px;
+  --spacing-unit: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+/* Typography */
+h1,
+h2,
+h3 {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Modern Card Style */
+.pop-out {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pop-out:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Button Styles */
+button {
+  font-family: inherit;
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Inputs */
+input,
+select,
+textarea {
+  font-family: inherit;
+  border: 1px solid #e5e5e5;
+  border-radius: var(--border-radius);
+  padding: 12px;
+  outline: none;
+  background: var(--color-gray);
+  transition: all 0.2s;
+  width: 100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  background: white;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Layout Utilities */
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.grid-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+}
+
+/* Loading Animation */
+.loading-bar {
+  height: 4px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 30%;
+  background: black;
+  animation: loading 1.5s infinite ease-in-out;
+}
+
+@keyframes loading {
+  0% {
+    left: -30%;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
