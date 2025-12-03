@@ -47,6 +47,30 @@ class GeminiService:
             time.sleep(self.min_request_interval - time_since_last)
         self.last_request_time = time.time()
     
+    def _extract_search_keywords(self, product_type: str) -> str:
+        """Use Gemini to extract English search keywords from product description"""
+        try:
+            prompt = f"""
+            Translate this product description into 2-3 simple English keywords for stock photo search.
+            Input: "{product_type}"
+            
+            Rules:
+            1. Output ONLY the keywords separated by spaces
+            2. No punctuation, no explanations
+            3. Focus on the visual object (e.g. "warm roasted sweet potato lollipop" -> "lollipop candy dessert")
+            """
+            
+            response = self.model.generate_content(prompt)
+            keywords = response.text.strip()
+            # Remove any accidental quotes or newlines
+            keywords = keywords.replace('"', '').replace('\n', ' ')
+            print(f"[{datetime.now()}] Translated '{product_type}' -> '{keywords}'")
+            return keywords
+        except Exception as e:
+            print(f"[{datetime.now()}] Keyword extraction failed: {e}")
+            # Fallback to simple replacement
+            return product_type.replace("천연 재료로 만든 ", "").replace("수제 ", "")
+
     def _get_unsplash_images(self, product_type: str, count: int = 8) -> List[str]:
         """Fetch product images from Unsplash API"""
         if not self.unsplash_access_key:
@@ -54,26 +78,38 @@ class GeminiService:
             return []
         
         try:
-            # Extract keywords from product type
-            keywords = product_type.replace("천연 재료로 만든 ", "").replace("수제 ", "")
+            # Get optimized English keywords
+            search_query = self._extract_search_keywords(product_type)
             
             url = "https://api.unsplash.com/photos/random"
             headers = {
                 "Authorization": f"Client-ID {self.unsplash_access_key}"
             }
             params = {
-                "query": keywords,
+                "query": search_query,
                 "count": count,
                 "orientation": "landscape"
             }
             
-            print(f"[{datetime.now()}] Fetching {count} images from Unsplash for '{keywords}'...")
+            print(f"[{datetime.now()}] Fetching {count} images from Unsplash for '{search_query}'...")
             response = requests.get(url, headers=headers, params=params, timeout=10)
             
             if response.status_code == 200:
                 photos = response.json()
-                image_urls = [photo['urls']['regular'] for photo in photos]
+                
+                # Handle both single photo and array responses (Unsplash API quirk)
+                if isinstance(photos, list):
+                    image_urls = [photo['urls']['regular'] for photo in photos]
+                elif isinstance(photos, dict):
+                    image_urls = [photos['urls']['regular']]
+                else:
+                    image_urls = []
+                
                 print(f"[{datetime.now()}] Successfully fetched {len(image_urls)} images from Unsplash")
+                
+                if len(image_urls) < count:
+                    print(f"[{datetime.now()}] WARNING: Only got {len(image_urls)} images, requested {count}")
+                    
                 return image_urls
             else:
                 print(f"[{datetime.now()}] Unsplash API error: {response.status_code}")
