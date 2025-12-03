@@ -159,6 +159,12 @@ class GeminiService:
           "color_palette": ["#hex1", "#hex2", "#hex3", "#hex4"]
         }}
         
+        JSON FORMATTING RULES (CRITICAL):
+        - The "html" field MUST be a single-line string with ALL newlines escaped as \\n
+        - ALL double quotes inside the HTML must be escaped as \\"
+        - NO actual line breaks inside the "html" string value
+        - Example: "html": "\u003c!DOCTYPE html\u003e\\n\u003chtml\u003e\\n\u003chead\u003e..."
+        
         HTML REQUIREMENTS:
         - Max width 1920px, Min height 1500px, Max height 2500px, centered, fully responsive
         - Mobile (320-767px), Tablet (768-1023px), Desktop (1024px-1920px)
@@ -221,28 +227,28 @@ class GeminiService:
                 return result
             except json.JSONDecodeError as e:
                 print(f"[{datetime.now()}] JSON parsing error: {e}")
+                print(f"[{datetime.now()}] Error position: line {e.lineno} column {e.colno}")
                 print(f"[{datetime.now()}] Raw text preview: {raw_text[:500]}...")
                 
-                # Try to clean up common JSON issues
-                try:
-                    # Sometimes models forget to escape quotes inside the HTML string
-                    # This is a very basic attempt to fix it, might not work for all cases
-                    pass
-                except:
-                    pass
-                    
+                # Aggressive cleanup attempts
+                cleaned_text = raw_text
+                
                 # Try to find and extract JSON from the response
                 try:
                     # Look for JSON object boundaries
-                    start = raw_text.find('{')
-                    end = raw_text.rfind('}') + 1
+                    start = cleaned_text.find('{')
+                    end = cleaned_text.rfind('}') + 1
                     if start != -1 and end > start:
-                        json_str = raw_text[start:end]
+                        json_str = cleaned_text[start:end]
+                        
+                        # Try parsing the extracted JSON
                         result = json.loads(json_str, strict=False)
                         print(f"[{datetime.now()}] Successfully extracted and parsed JSON")
                         return result
-                except:
-                    pass
+                except Exception as extraction_error:
+                    print(f"[{datetime.now()}] Extraction also failed: {extraction_error}")
+                    
+                # If all else fails, raise the original error
                 raise ValueError(f"Failed to parse Gemini response as JSON: {str(e)}")
                 
         except Exception as e:
