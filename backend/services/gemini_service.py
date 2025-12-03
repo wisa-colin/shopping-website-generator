@@ -176,18 +176,17 @@ class GeminiService:
         
 {image_instruction}
         
-        INTERACTIVE FEATURES:
-        - MANDATORY: Rich CSS animations (fade-in, slide-up) for all major sections
-        - MANDATORY: Scroll-triggered reveal effects using Intersection Observer
-        - MANDATORY: Sophisticated hover effects on product cards, buttons, and images (scale, shadow, overlay)
-        - Parallax scrolling effects for hero sections or background images
-        - Smooth scroll animations for navigation
-        - Hamburger menu for mobile
-        - Shopping cart with badge animation
-        - All interactions in vanilla JavaScript
-        - UNLESS EXPLICITLY REJECTED BY USER: Always include these interactive elements to make the site feel alive and premium.
-        - Smooth scroll animations
-        - Hover effects on images and buttons
+        INTERACTIVE FEATURES (MAKE IT FEEL ALIVE AND DYNAMIC):
+        - MANDATORY: Animated gradient background OR floating shapes/particles that continuously move
+        - MANDATORY: At least 2-3 elements with infinite CSS animations (e.g., floating icons, pulsing buttons, rotating badges)
+        - MANDATORY: Rich CSS animations (fade-in, slide-up, bounce) for all major sections
+        - MANDATORY: Scroll-triggered reveal effects using Intersection Observer on ALL content sections
+        - MANDATORY: Sophisticated hover effects on product cards (scale + shadow + tilt), buttons (glow/gradient shift), and images (zoom + overlay)
+        - MANDATORY: Parallax scrolling on hero section (background moves slower than content)
+        - Smooth hamburger menu animation for mobile (slide-in with backdrop blur)
+        - Shopping cart icon with bounce/shake animation when interacted
+        - Smooth transitions on all interactive elements (transition: all 0.3s ease)
+        - GOAL: The site should feel PREMIUM and ALIVE with subtle continuous motion, not static like a boring template
         
         DESIGN RATIONALE:
         - If reference URL provided, mention if you considered it in explanation (in Korean)
