@@ -28,10 +28,10 @@ class GeminiService:
         self.model = genai.GenerativeModel(
             model_name=model_name,
             generation_config={
-                "temperature": 0.5,
+                "temperature": 1,
                 "top_p": 0.95,
                 "top_k": 40,
-                "max_output_tokens": 8192,
+                "max_output_tokens": 64000,
             }
         )
         
