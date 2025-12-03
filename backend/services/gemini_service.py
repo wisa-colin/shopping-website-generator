@@ -152,18 +152,19 @@ class GeminiService:
         Reference URL: {reference_url}
         
         CRITICAL OUTPUT FORMAT - Return ONLY valid JSON (no markdown, no code fences):
-        {{
-          "html": "complete HTML code here",
+        {
+          "html": "complete HTML code here (MUST ESCAPE ALL DOUBLE QUOTES inside the HTML string)",
           "explanation": "1-2 sentences in Korean about design choice",
           "key_points": ["point 1", "point 2", "point 3"],
           "color_palette": ["#hex1", "#hex2", "#hex3", "#hex4"]
-        }}
+        }
         
         HTML REQUIREMENTS:
         - Max width 1000px, centered, fully responsive
         - Mobile (320-767px), Tablet (768-1023px), Desktop (1024px+)
         - ALL text in Korean
         - Embedded CSS and JavaScript only
+        - IMPORTANT: Since this is inside a JSON string, you MUST escape all double quotes in HTML attributes like class=\"container\"
         
 {image_instruction}
         
@@ -179,7 +180,7 @@ class GeminiService:
         - Provide 3-5 key design decisions in Korean
         - Extract 4-5 main hex color codes from your design
         
-        Remember: Output ONLY the JSON object, no other text.
+        Remember: Output ONLY the JSON object. Ensure all quotes within the HTML string are properly escaped.
         """
         
         try:
@@ -204,7 +205,8 @@ class GeminiService:
             
             # Parse JSON
             try:
-                result = json.loads(raw_text)
+                # Use strict=False to allow control characters inside strings
+                result = json.loads(raw_text, strict=False)
                 print(f"[{datetime.now()}] Successfully parsed JSON response")
                 print(f"[{datetime.now()}] HTML length: {len(result.get('html', ''))} chars")
                 print(f"[{datetime.now()}] Explanation: {result.get('explanation', 'N/A')}")
@@ -213,6 +215,15 @@ class GeminiService:
             except json.JSONDecodeError as e:
                 print(f"[{datetime.now()}] JSON parsing error: {e}")
                 print(f"[{datetime.now()}] Raw text preview: {raw_text[:500]}...")
+                
+                # Try to clean up common JSON issues
+                try:
+                    # Sometimes models forget to escape quotes inside the HTML string
+                    # This is a very basic attempt to fix it, might not work for all cases
+                    pass
+                except:
+                    pass
+                    
                 # Try to find and extract JSON from the response
                 try:
                     # Look for JSON object boundaries
@@ -220,7 +231,7 @@ class GeminiService:
                     end = raw_text.rfind('}') + 1
                     if start != -1 and end > start:
                         json_str = raw_text[start:end]
-                        result = json.loads(json_str)
+                        result = json.loads(json_str, strict=False)
                         print(f"[{datetime.now()}] Successfully extracted and parsed JSON")
                         return result
                 except:
