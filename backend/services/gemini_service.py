@@ -176,7 +176,10 @@ class GeminiService:
         - Embedded CSS and JavaScript preferred, but you MAY use CDN libraries for advanced effects (e.g., GSAP, AOS, Swiper, FontAwesome) if needed.
         - If using CDN, ensure links are valid and reliable (e.g., cdnjs).
         
+        
 {image_instruction}
+        
+        IMPORTANT: To prevent output truncation, please MINIMIZE your HTML/CSS/JS where possible (remove excessive comments, use concise CSS).
         
         INTERACTIVE FEATURES (MAKE IT FEEL ALIVE AND DYNAMIC):
         - MANDATORY: Animated gradient background OR floating shapes/particles that continuously move
