@@ -43,20 +43,50 @@ const GeneratingPage: React.FC = () => {
 
                 // Poll for completion
                 setStatus('코드를 작성하고 있습니다...');
+                let pollAttempts = 0;
+                const maxPollAttempts = 120; // 4 minutes (120 * 2 seconds)
+
                 const pollInterval = setInterval(async () => {
-                    const resultRes = await fetch(`${API_URL}/results/${siteId}`);
-                    if (resultRes.ok) {
-                        const site = await resultRes.json();
-                        if (site.status === 'completed') {
+                    pollAttempts++;
+
+                    // Timeout after max attempts
+                    if (pollAttempts > maxPollAttempts) {
+                        clearInterval(pollInterval);
+                        clearInterval(timer);
+                        setStatus('시간 초과: 생성에 너무 오래 걸렸습니다. 다시 시도해주세요.');
+                        return;
+                    }
+
+                    try {
+                        const resultRes = await fetch(`${API_URL}/results/${siteId}`);
+
+                        if (resultRes.ok) {
+                            const site = await resultRes.json();
+                            if (site.status === 'completed') {
+                                clearInterval(pollInterval);
+                                clearInterval(timer);
+                                setStatus('완성되었습니다!');
+                                setTimeout(() => navigate(`/result/${siteId}`), 800);
+                            } else if (site.status === 'error') {
+                                clearInterval(pollInterval);
+                                clearInterval(timer);
+                                setStatus('오류가 발생했습니다: ' + site.error_message);
+                            }
+                        } else if (resultRes.status === 404) {
+                            // 404 but still pending - continue polling
+                            console.log(`Poll attempt ${pollAttempts}: Site not ready yet`);
+                        } else {
+                            // Other errors - stop polling
                             clearInterval(pollInterval);
                             clearInterval(timer);
-                            setStatus('완성되었습니다!');
-                            setTimeout(() => navigate(`/result/${siteId}`), 800);
-                        } else if (site.status === 'error') {
-                            clearInterval(pollInterval);
-                            clearInterval(timer);
-                            setStatus('오류가 발생했습니다: ' + site.error_message);
+                            setStatus(`서버 오류 (${resultRes.status}): 다시 시도해주세요.`);
                         }
+                    } catch (error) {
+                        console.error('Polling error:', error);
+                        // Network error - stop polling
+                        clearInterval(pollInterval);
+                        clearInterval(timer);
+                        setStatus('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
                     }
                 }, 2000);
 
