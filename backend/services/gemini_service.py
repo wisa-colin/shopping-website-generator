@@ -152,12 +152,12 @@ class GeminiService:
         Reference URL: {reference_url}
         
         CRITICAL OUTPUT FORMAT - Return ONLY valid JSON (no markdown, no code fences):
-        {
+        {{
           "html": "complete HTML code here (MUST ESCAPE ALL DOUBLE QUOTES inside the HTML string)",
           "explanation": "1-2 sentences in Korean about design choice",
           "key_points": ["point 1", "point 2", "point 3"],
           "color_palette": ["#hex1", "#hex2", "#hex3", "#hex4"]
-        }
+        }}
         
         HTML REQUIREMENTS:
         - Max width 1000px, centered, fully responsive
