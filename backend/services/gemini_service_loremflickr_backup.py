@@ -2,20 +2,15 @@ import google.generativeai as genai
 import os
 import json
 import time
-import requests
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 class GeminiService:
     def __init__(self):
-        # Get API keys from environment
+        # Get API key from environment
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables")
-        
-        self.unsplash_access_key = os.getenv("UNSPLASH_ACCESS_KEY")
-        if not self.unsplash_access_key:
-            print("WARNING: UNSPLASH_ACCESS_KEY not found, will use fallback images")
         
         # Configure Gemini
         genai.configure(api_key=api_key)
@@ -47,66 +42,9 @@ class GeminiService:
             time.sleep(self.min_request_interval - time_since_last)
         self.last_request_time = time.time()
     
-    def _get_unsplash_images(self, product_type: str, count: int = 8) -> List[str]:
-        """Fetch product images from Unsplash API"""
-        if not self.unsplash_access_key:
-            print("No Unsplash key, using fallback")
-            return []
-        
-        try:
-            # Extract keywords from product type
-            keywords = product_type.replace("천연 재료로 만든 ", "").replace("수제 ", "")
-            
-            url = "https://api.unsplash.com/photos/random"
-            headers = {
-                "Authorization": f"Client-ID {self.unsplash_access_key}"
-            }
-            params = {
-                "query": keywords,
-                "count": count,
-                "orientation": "landscape"
-            }
-            
-            print(f"[{datetime.now()}] Fetching {count} images from Unsplash for '{keywords}'...")
-            response = requests.get(url, headers=headers, params=params, timeout=10)
-            
-            if response.status_code == 200:
-                photos = response.json()
-                image_urls = [photo['urls']['regular'] for photo in photos]
-                print(f"[{datetime.now()}] Successfully fetched {len(image_urls)} images from Unsplash")
-                return image_urls
-            else:
-                print(f"[{datetime.now()}] Unsplash API error: {response.status_code}")
-                return []
-                
-        except Exception as e:
-            print(f"[{datetime.now()}] Error fetching Unsplash images: {e}")
-            return []
-    
     async def generate_website_content(self, product_type: str, reference_url: str, design_style: str) -> dict:
         print(f"[{datetime.now()}] Received generation request for: {product_type}")
         self._check_rate_limits()
-        
-        # Fetch Unsplash images first
-        unsplash_images = self._get_unsplash_images(product_type, count=8)
-        
-        # Build image instructions based on whether we have Unsplash images
-        if unsplash_images:
-            image_instruction = f"""
-        IMAGE REQUIREMENTS - USE THESE UNSPLASH URLS:
-        You MUST use these pre-fetched Unsplash image URLs in your HTML:
-        {chr(10).join([f'        - {url}' for url in unsplash_images])}
-        
-        Use different images for hero, product gallery, testimonials, etc.
-        All images are landscape-oriented and professional quality.
-        CRITICAL: Use ONLY these URLs, do not generate or modify them.
-        """
-        else:
-            image_instruction = """
-        IMAGE REQUIREMENTS - FALLBACK (Lorem Flickr):
-        Use Lorem Flickr for images: https://loremflickr.com/800/600/keyword1,keyword2
-        Choose keywords matching the product type (soap, cosmetics, food, etc.)
-        """
         
         prompt = f"""
         You are a world-class UI/UX designer and frontend developer.
@@ -129,7 +67,20 @@ class GeminiService:
         - ALL text in Korean
         - Embedded CSS and JavaScript only
         
-{image_instruction}
+        IMAGE REQUIREMENTS - CRITICAL:
+        Use Lorem Flickr for REAL PHOTOS based on product keywords.
+        Format: https://loremflickr.com/800/600/keyword1,keyword2,keyword3
+        
+        Choose keywords that match the product type exactly:
+        - For soap: soap,natural,handmade or spa,organic,wellness
+        - For cosmetics: cosmetics,beauty,skincare or makeup,organic,natural
+        - For food: food,gourmet,artisan or sauce,cooking,kitchen
+        - For bags: handbag,leather,fashion or bag,accessory,style
+        - For candles: candle,aromatherapy,home or candle,decor,ambiance
+        - For pet products: dog,pet,puppy or cat,pet,kitten
+        
+        Use different keyword combinations for each image for variety.
+        Example: First image uses soap,natural,spa and second uses soap,handmade,organic
         
         INTERACTIVE FEATURES:
         - Smooth scroll animations
