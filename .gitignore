@@ -1,8 +1,9 @@
 # Python
-backend/__pycache__/
+**/__pycache__/
 backend/venv/
 backend/.env
 backend/*.db
+!backend/sites.db
 backend/*.sqlite3
 
 # Node
