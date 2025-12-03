@@ -32,7 +32,6 @@ class GeminiService:
                 "top_p": 0.95,
                 "top_k": 40,
                 "max_output_tokens": 8192,
-                "response_mime_type": "application/json",  # Force JSON output
             }
         )
         
@@ -196,64 +195,85 @@ class GeminiService:
         Remember: Output ONLY the JSON object. Ensure all quotes within the HTML string are properly escaped.
         """
         
-        try:
-            print(f"[{datetime.now()}] Sending request to Gemini API...")
-            response = self.model.generate_content(prompt)
-            print(f"[{datetime.now()}] Received response from Gemini")
-            
-            # Extract text
-            raw_text = response.text.strip()
-            print(f"[{datetime.now()}] Raw response length: {len(raw_text)} chars")
-            
-            # Remove markdown fencing if present
-            if raw_text.startswith("```"):
-                # Find the actual JSON content
-                lines = raw_text.split('\n')
-                # Skip first line (```json or ```) and last line (```)
-                if len(lines) > 2:
-                    raw_text = '\n'.join(lines[1:-1])
-                    # Also remove any remaining partial fencing
-                    if raw_text.startswith("json"):
-                        raw_text = raw_text[4:].strip()
-            
-            # Parse JSON
+        # Retry logic for handling intermittent JSON parsing failures
+        max_retries = 2
+        last_error = None
+        
+        for attempt in range(max_retries):
             try:
-                # Use strict=False to allow control characters inside strings
-                result = json.loads(raw_text, strict=False)
-                print(f"[{datetime.now()}] Successfully parsed JSON response")
-                print(f"[{datetime.now()}] HTML length: {len(result.get('html', ''))} chars")
-                print(f"[{datetime.now()}] Explanation: {result.get('explanation', 'N/A')}")
-                print(f"[{datetime.now()}] Color palette: {result.get('color_palette', [])}")
-                return result
-            except json.JSONDecodeError as e:
-                print(f"[{datetime.now()}] JSON parsing error: {e}")
-                print(f"[{datetime.now()}] Error position: line {e.lineno} column {e.colno}")
-                print(f"[{datetime.now()}] Raw text preview: {raw_text[:500]}...")
-                
-                # Aggressive cleanup attempts
-                cleaned_text = raw_text
-                
-                # Try to find and extract JSON from the response
-                try:
-                    # Look for JSON object boundaries
-                    start = cleaned_text.find('{')
-                    end = cleaned_text.rfind('}') + 1
-                    if start != -1 and end > start:
-                        json_str = cleaned_text[start:end]
-                        
-                        # Try parsing the extracted JSON
-                        result = json.loads(json_str, strict=False)
-                        print(f"[{datetime.now()}] Successfully extracted and parsed JSON")
-                        return result
-                except Exception as extraction_error:
-                    print(f"[{datetime.now()}] Extraction also failed: {extraction_error}")
+                if attempt > 0:
+                    print(f"[{datetime.now()}] Retry attempt {attempt + 1}/{max_retries}")
                     
-                # If all else fails, raise the original error
-                raise ValueError(f"Failed to parse Gemini response as JSON: {str(e)}")
+                print(f"[{datetime.now()}] Sending request to Gemini API...")
+                response = self.model.generate_content(prompt)
+                print(f"[{datetime.now()}] Received response from Gemini")
                 
-        except Exception as e:
-            print(f"[{datetime.now()}] Error during generation: {type(e).__name__}: {str(e)}")
-            raise
+                # Extract text
+                raw_text = response.text.strip()
+                print(f"[{datetime.now()}] Raw response length: {len(raw_text)} chars")
+                
+                # Remove markdown fencing if present
+                if raw_text.startswith("```"):
+                    # Find the actual JSON content
+                    lines = raw_text.split('\n')
+                    # Skip first line (```json or ```) and last line (```)
+                    if len(lines) > 2:
+                        raw_text = '\n'.join(lines[1:-1])
+                        # Also remove any remaining partial fencing
+                        if raw_text.startswith("json"):
+                            raw_text = raw_text[4:].strip()
+                
+                # Parse JSON
+                try:
+                    # Use strict=False to allow control characters inside strings
+                    result = json.loads(raw_text, strict=False)
+                    print(f"[{datetime.now()}] Successfully parsed JSON response")
+                    print(f"[{datetime.now()}] HTML length: {len(result.get('html', ''))} chars")
+                    print(f"[{datetime.now()}] Explanation: {result.get('explanation', 'N/A')}")
+                    print(f"[{datetime.now()}] Color palette: {result.get('color_palette', [])}")
+                    return result
+                except json.JSONDecodeError as e:
+                    print(f"[{datetime.now()}] JSON parsing error: {e}")
+                    print(f"[{datetime.now()}] Error position: line {e.lineno} column {e.colno}")
+                    print(f"[{datetime.now()}] Raw text preview: {raw_text[:500]}...")
+                    
+                    # Try to find and extract JSON from the response
+                    try:
+                        # Look for JSON object boundaries
+                        start = raw_text.find('{')
+                        end = raw_text.rfind('}') + 1
+                        if start != -1 and end > start:
+                            json_str = raw_text[start:end]
+                            
+                            # Try parsing the extracted JSON
+                            result = json.loads(json_str, strict=False)
+                            print(f"[{datetime.now()}] Successfully extracted and parsed JSON")
+                            return result
+                    except Exception as extraction_error:
+                        print(f"[{datetime.now()}] Extraction also failed: {extraction_error}")
+                    
+                    # If this was the last attempt, raise the error
+                    if attempt == max_retries - 1:
+                        raise ValueError(f"Failed to parse Gemini response as JSON after {max_retries} attempts: {str(e)}")
+                    else:
+                        # Otherwise, retry
+                        last_error = e
+                        print(f"[{datetime.now()}] Will retry...")
+                        continue
+                        
+            except ValueError:
+                # Re-raise ValueError (from JSON parsing failure)
+                raise
+            except Exception as e:
+                print(f"[{datetime.now()}] Error during generation: {type(e).__name__}: {str(e)}")
+                if attempt == max_retries - 1:
+                    raise
+                last_error = e
+                print(f"[{datetime.now()}] Will retry...")
+                continue
+        
+        # If we get here, all retries failed
+        raise ValueError(f"Failed to generate content after {max_retries} attempts. Last error: {last_error}")
 
 # Create singleton instance
 gemini_service = GeminiService()
