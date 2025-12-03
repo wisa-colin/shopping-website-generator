@@ -223,6 +223,30 @@ class GeminiService:
                         if raw_text.startswith("json"):
                             raw_text = raw_text[4:].strip()
                 
+                # CRITICAL FIX: Escape actual newlines in the "html" field
+                # This fixes the most common JSON parsing error
+                import re
+                
+                # Find the "html" field and escape newlines within it
+                # Pattern: "html": "..." where ... may contain unescaped newlines
+                def escape_html_field(match):
+                    field_name = match.group(1)  # "html"
+                    content = match.group(2)  # the actual HTML content
+                    # Escape actual newlines and carriage returns
+                    content = content.replace('\n', '\\n').replace('\r', '')
+                    # Escape unescaped quotes (but keep already escaped ones)
+                    # This is tricky - we'll be conservative
+                    return f'"{field_name}": "{content}"'
+                
+                # Apply the fix - look for "html": "..." pattern
+                # Use DOTALL to match across lines, non-greedy to stop at first closing quote + comma/brace
+                raw_text = re.sub(
+                    r'"(html)"\s*:\s*"(.*?)"(\s*[,}])',
+                    lambda m: f'"{m.group(1)}": "{m.group(2).replace(chr(10), "\\n").replace(chr(13), "")}" {m.group(3)[1:]}',
+                    raw_text,
+                    flags=re.DOTALL
+                )
+                
                 # Parse JSON
                 try:
                     # Use strict=False to allow control characters inside strings
