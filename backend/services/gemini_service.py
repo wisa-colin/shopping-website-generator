@@ -28,7 +28,7 @@ class GeminiService:
         self.model = genai.GenerativeModel(
             model_name=model_name,
             generation_config={
-                "temperature": 0.9,
+                "temperature": 0.5,
                 "top_p": 0.95,
                 "top_k": 40,
                 "max_output_tokens": 8192,
@@ -223,29 +223,43 @@ class GeminiService:
                         if raw_text.startswith("json"):
                             raw_text = raw_text[4:].strip()
                 
-                # CRITICAL FIX: Escape actual newlines in the "html" field
-                # This fixes the most common JSON parsing error
-                import re
-                
-                # Find the "html" field and escape newlines within it
-                # Pattern: "html": "..." where ... may contain unescaped newlines
-                def escape_html_field(match):
-                    field_name = match.group(1)  # "html"
-                    content = match.group(2)  # the actual HTML content
-                    # Escape actual newlines and carriage returns
-                    content = content.replace('\n', '\\n').replace('\r', '')
-                    # Escape unescaped quotes (but keep already escaped ones)
-                    # This is tricky - we'll be conservative
-                    return f'"{field_name}": "{content}"'
-                
-                # Apply the fix - look for "html": "..." pattern
-                # Use DOTALL to match across lines, non-greedy to stop at first closing quote + comma/brace
-                raw_text = re.sub(
-                    r'"(html)"\s*:\s*"(.*?)"(\s*[,}])',
-                    lambda m: f'"{m.group(1)}": "{m.group(2).replace(chr(10), "\\n").replace(chr(13), "")}" {m.group(3)[1:]}',
-                    raw_text,
-                    flags=re.DOTALL
-                )
+                # CRITICAL FIX: Escape actual newlines before JSON parsing
+                # Simple approach: find "html" field and escape newlines in its value
+                try:
+                    # Find the start of html field
+                    html_start = raw_text.find('"html"')
+                    if html_start != -1:
+                        # Find the opening quote of the value
+                        value_start = raw_text.find('"', html_start + 6)  # after "html"
+                        value_start = raw_text.find('"', value_start + 1)  # the actual value quote
+                        
+                        if value_start != -1:
+                            # Find the closing quote (accounting for escaped quotes)
+                            pos = value_start + 1
+                            escaped = False
+                            value_end = -1
+                            
+                            while pos < len(raw_text):
+                                char = raw_text[pos]
+                                if escaped:
+                                    escaped = False
+                                elif char == '\\':
+                                    escaped = True
+                                elif char == '"':
+                                    value_end = pos
+                                    break
+                                pos += 1
+                            
+                            if value_end != -1:
+                                # Extract and fix the HTML value
+                                html_value = raw_text[value_start+1:value_end]
+                                # Escape actual newlines
+                                html_value_fixed = html_value.replace('\n', '\\n').replace('\r', '')
+                                # Rebuild the response
+                                raw_text = raw_text[:value_start+1] + html_value_fixed + raw_text[value_end:]
+                                print(f"[{datetime.now()}] Fixed {html_value.count(chr(10))} newlines in HTML field")
+                except Exception as fix_error:
+                    print(f"[{datetime.now()}] HTML field fix failed: {fix_error}, will try parsing anyway")
                 
                 # Parse JSON
                 try:
