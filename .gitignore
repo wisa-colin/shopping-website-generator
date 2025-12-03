@@ -3,6 +3,7 @@
 backend/venv/
 backend/.env
 backend/*.db
+!backend/sites.db
 backend/*.sqlite3
 
 # Node
