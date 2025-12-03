@@ -160,20 +160,27 @@ class GeminiService:
         }}
         
         HTML REQUIREMENTS:
-        - Max width 1000px, centered, fully responsive
-        - Mobile (320-767px), Tablet (768-1023px), Desktop (1024px+)
+        - Max width 1920px, Min height 1500px, Max height 2500px, centered, fully responsive
+        - Mobile (320-767px), Tablet (768-1023px), Desktop (1024px-1920px)
         - ALL text in Korean
-        - Embedded CSS and JavaScript only
+        - Embedded CSS and JavaScript preferred, but you MAY use CDN libraries for advanced effects (e.g., GSAP, AOS, Swiper, FontAwesome) if needed.
+- If using CDN, ensure links are valid and reliable (e.g., cdnjs).
         - IMPORTANT: Since this is inside a JSON string, you MUST escape all double quotes in HTML attributes like class=\"container\"
         
 {image_instruction}
         
         INTERACTIVE FEATURES:
-        - Smooth scroll animations
-        - Hover effects on images and buttons
+        - MANDATORY: Rich CSS animations (fade-in, slide-up) for all major sections
+        - MANDATORY: Scroll-triggered reveal effects using Intersection Observer
+        - MANDATORY: Sophisticated hover effects on product cards, buttons, and images (scale, shadow, overlay)
+        - Parallax scrolling effects for hero sections or background images
+        - Smooth scroll animations for navigation
         - Hamburger menu for mobile
         - Shopping cart with badge animation
         - All interactions in vanilla JavaScript
+        - UNLESS EXPLICITLY REJECTED BY USER: Always include these interactive elements to make the site feel alive and premium.
+        - Smooth scroll animations
+        - Hover effects on images and buttons
         
         DESIGN RATIONALE:
         - If reference URL provided, mention if you considered it in explanation (in Korean)
