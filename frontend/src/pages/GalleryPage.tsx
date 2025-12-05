@@ -25,7 +25,11 @@ const GalleryPage: React.FC = () => {
                 const res = await fetch(`${API_URL}/gallery`);
                 if (res.ok) {
                     const data = await res.json();
-                    setSites(data);
+                    // Sort by created_at desc to ensure correct order
+                    const sortedData = data.sort((a: Site, b: Site) =>
+                        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                    );
+                    setSites(sortedData);
                 }
             } catch (e) {
                 console.error(e);

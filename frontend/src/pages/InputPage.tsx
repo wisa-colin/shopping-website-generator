@@ -53,8 +53,7 @@ const InputPage: React.FC = () => {
                 alignItems: 'center',
                 padding: '1.5rem 2rem',
                 borderBottom: '1px solid #e5e5e5',
-                backgroundColor: 'white',
-                zIndex: 10
+                backgroundColor: 'white'
             }}>
                 <div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: '800', margin: 0, letterSpacing: '-0.03em' }}>
