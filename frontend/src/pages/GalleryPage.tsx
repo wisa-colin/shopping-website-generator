@@ -36,7 +36,6 @@ const GalleryPage: React.FC = () => {
         fetchSites();
     }, []);
 
-    // Calculate pagination
     const totalPages = Math.ceil(sites.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
@@ -59,7 +58,6 @@ const GalleryPage: React.FC = () => {
             left: 0,
             backgroundColor: '#fafafa'
         }}>
-            {/* Top Header */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -75,7 +73,6 @@ const GalleryPage: React.FC = () => {
                         생성된 사이트 {sites.length}개
                     </p>
                 </div>
-
                 <button
                     onClick={() => navigate('/')}
                     style={{
@@ -97,12 +94,7 @@ const GalleryPage: React.FC = () => {
                 </button>
             </div>
 
-            {/* Main Content Area */}
-            <div style={{
-                flex: 1,
-                overflow: 'auto',
-                padding: '2rem'
-            }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '2rem' }}>
                 {loading ? (
                     <div style={{
                         display: 'flex',
@@ -182,7 +174,9 @@ const GalleryPage: React.FC = () => {
                                         cursor: 'pointer',
                                         overflow: 'hidden',
                                         transition: 'all 0.2s ease',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                        position: 'relative',
+                                        isolation: 'isolate'
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'translateY(-4px)';
@@ -193,24 +187,26 @@ const GalleryPage: React.FC = () => {
                                         e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                                     }}
                                 >
-                                    {/* Thumbnail Preview Area */}
+                                    {/* Thumbnail Preview - iframe */}
                                     <div style={{
                                         height: '200px',
-                                        backgroundColor: '#f8f9fa',
+                                        backgroundColor: 'white',
                                         borderBottom: '1px solid #e5e5e5',
                                         position: 'relative',
                                         overflow: 'hidden'
                                     }}>
                                         {site.html_content ? (
                                             <div style={{
-                                                width: '1000px',
-                                                height: '625px',
+                                                width: '312.5%', // 100% / 0.32
+                                                height: '312.5%',
                                                 transform: 'scale(0.32)',
                                                 transformOrigin: 'top left',
                                                 position: 'absolute',
                                                 top: 0,
                                                 left: 0,
-                                                pointerEvents: 'none'
+                                                pointerEvents: 'none',
+                                                overflow: 'hidden',
+                                                backgroundColor: 'white'
                                             }}>
                                                 <iframe
                                                     srcDoc={site.html_content}
@@ -219,9 +215,10 @@ const GalleryPage: React.FC = () => {
                                                         width: '100%',
                                                         height: '100%',
                                                         border: 'none',
-                                                        backgroundColor: 'white'
+                                                        backgroundColor: 'white',
+                                                        display: 'block'
                                                     }}
-                                                    sandbox="allow-same-origin"
+                                                    loading="lazy"
                                                 />
                                             </div>
                                         ) : (
@@ -230,25 +227,15 @@ const GalleryPage: React.FC = () => {
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 height: '100%',
-                                                padding: '2rem'
+                                                backgroundColor: 'white'
                                             }}>
-                                                <div style={{ textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎨</div>
-                                                    <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>미리보기 없음</p>
-                                                </div>
+                                                <p style={{
+                                                    fontSize: '0.875rem',
+                                                    color: '#9ca3af',
+                                                    margin: 0
+                                                }}>미리보기 없음</p>
                                             </div>
                                         )}
-
-                                        {/* Decorative gradient overlay */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            right: 0,
-                                            height: '4px',
-                                            background: 'linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899)',
-                                            zIndex: 1
-                                        }} />
                                     </div>
 
                                     {/* Info Section */}
@@ -309,7 +296,6 @@ const GalleryPage: React.FC = () => {
                             ))}
                         </div>
 
-                        {/* Pagination */}
                         {totalPages > 1 && (
                             <div style={{
                                 display: 'flex',

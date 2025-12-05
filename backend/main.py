@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import uvicorn
 import os
 from dotenv import load_dotenv
@@ -22,7 +22,7 @@ app = FastAPI(title="Responsive Shopping Website Generator")
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,6 +32,7 @@ class GenerateRequest(BaseModel):
     product_type: str
     reference_url: Optional[str] = None
     design_style: str
+    generation_mode: Optional[str] = "smart" # smart, none, raw
 
 class GenerateResponse(BaseModel):
     id: str
@@ -56,7 +57,8 @@ async def generate_site(request: GenerateRequest, background_tasks: BackgroundTa
             result = await gemini_service.generate_website_content(
                 product_type=req.product_type,
                 reference_url=req.reference_url or "None",
-                design_style=req.design_style
+                design_style=req.design_style,
+                mode=req.generation_mode or "smart"
             )
             
             html_content = result.get("html", "")
@@ -75,7 +77,6 @@ async def generate_site(request: GenerateRequest, background_tasks: BackgroundTa
             
         except Exception as e:
             print(f"Generation failed for {site_id}: {e}")
-            # Update DB on error
             database.update_site_error(site_id, str(e))
             
     background_tasks.add_task(process_generation, site_id, request)

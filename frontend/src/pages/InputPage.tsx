@@ -8,7 +8,8 @@ const InputPage: React.FC = () => {
     const [formData, setFormData] = useState({
         productType: '',
         designStyle: '',
-        referenceUrl: ''
+        referenceUrl: '',
+        generationMode: 'smart'
     });
 
     const handleNext = () => {
@@ -16,7 +17,9 @@ const InputPage: React.FC = () => {
             alert('상품명을 입력해주세요.');
             return;
         }
-        if (step === 2 && !formData.designStyle) {
+        // Step 2 is now reference URL (optional, no validation)
+        // Step 3 is now design style (required)
+        if (step === 3 && !formData.designStyle) {
             alert('디자인 스타일을 입력해주세요.');
             return;
         }
@@ -161,50 +164,8 @@ const InputPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Step 2 */}
+                    {/* Step 2 - Reference URL */}
                     {step === 2 && (
-                        <div style={{
-                            animation: 'fadeIn 0.3s ease-in'
-                        }}>
-                            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0 0 0.5rem 0', color: '#111827' }}>
-                                    어떤 디자인을 원하시나요?
-                                </h2>
-                                <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-                                    원하는 디자인 스타일이나 느낌을 설명해주세요
-                                </p>
-                            </div>
-
-                            <textarea
-                                value={formData.designStyle}
-                                onChange={(e) => setFormData({ ...formData, designStyle: e.target.value })}
-                                placeholder="예: 전체적으로 자연스러운 베이지 톤으로 따뜻한 느낌을 주고, 상품 이미지가 돋보이도록 깔끔한 레이아웃을 원합니다. 모바일에서도 쉽게 탐색할 수 있으면 좋겠습니다."
-                                rows={6}
-                                autoFocus
-                                style={{
-                                    width: '100%',
-                                    padding: '1rem',
-                                    border: '2px solid #e5e7eb',
-                                    borderRadius: '8px',
-                                    fontSize: '1rem',
-                                    outline: 'none',
-                                    transition: 'all 0.2s',
-                                    backgroundColor: 'white',
-                                    resize: 'vertical',
-                                    fontFamily: 'inherit'
-                                }}
-                                onFocus={(e) => {
-                                    e.target.style.borderColor = '#000';
-                                }}
-                                onBlur={(e) => {
-                                    e.target.style.borderColor = '#e5e7eb';
-                                }}
-                            />
-                        </div>
-                    )}
-
-                    {/* Step 3 */}
-                    {step === 3 && (
                         <div style={{
                             animation: 'fadeIn 0.3s ease-in'
                         }}>
@@ -242,13 +203,108 @@ const InputPage: React.FC = () => {
                                 }}
                             />
                             <p style={{
-                                margin: '1rem 0 0 0',
+                                margin: '1rem 0 1.5rem 0',
                                 fontSize: '0.75rem',
                                 color: '#9ca3af',
                                 lineHeight: '1.5',
                                 textAlign: 'center'
                             }}>
                                 입력하지 않아도 괜찮습니다
+                            </p>
+
+                            {/* Analysis Mode Selection (Hidden for now, default is smart) */}
+                            <div style={{
+                                display: 'none', // Hidden as per user request
+                                borderTop: '1px solid #f3f4f6',
+                                paddingTop: '1.5rem',
+                                marginTop: '1.5rem'
+                            }}>
+                                <label style={{
+                                    display: 'block',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '600',
+                                    color: '#374151',
+                                    marginBottom: '0.5rem'
+                                }}>
+                                    분석 모드 (테스트용)
+                                </label>
+                                <select
+                                    value={formData.generationMode || 'smart'}
+                                    onChange={(e) => setFormData({ ...formData, generationMode: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        fontSize: '0.875rem',
+                                        backgroundColor: 'white',
+                                        outline: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="smart">✨ 스마트 필터링 (권장 - 핵심 구조만 분석)</option>
+                                    <option value="none">🔗 HTML 소스 미제공 (URL만 전달)</option>
+                                    <option value="raw">📄 전체 소스 제공 (기존 방식)</option>
+                                </select>
+                                <p style={{
+                                    fontSize: '0.75rem',
+                                    color: '#6b7280',
+                                    marginTop: '0.5rem'
+                                }}>
+                                    * 스마트 필터링: 불필요한 태그를 제거하여 분석 정확도를 높입니다.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 3 - Design Style */}
+                    {step === 3 && (
+                        <div style={{
+                            animation: 'fadeIn 0.3s ease-in'
+                        }}>
+                            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: '700', margin: '0 0 0.5rem 0', color: '#111827' }}>
+                                    어떤 디자인을 원하시나요?
+                                </h2>
+                                <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
+                                    원하는 디자인 스타일이나 느낌을 설명해주세요
+                                </p>
+                            </div>
+
+                            <textarea
+                                value={formData.designStyle}
+                                onChange={(e) => setFormData({ ...formData, designStyle: e.target.value })}
+                                placeholder="예: 전체적으로 자연스러운 베이지 톤으로 따뜻한 느낌을 주고, 상품 이미지가 돋보이도록 깔끔한 레이아웃을 원합니다. 모바일에서도 쉽게 탐색할 수 있으면 좋겠습니다."
+                                rows={6}
+                                maxLength={1000}
+                                autoFocus
+                                style={{
+                                    width: '100%',
+                                    padding: '1rem',
+                                    border: '2px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    fontSize: '1rem',
+                                    outline: 'none',
+                                    transition: 'all 0.2s',
+                                    backgroundColor: 'white',
+                                    resize: 'vertical',
+                                    fontFamily: 'inherit'
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.borderColor = '#000';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.borderColor = '#e5e7eb';
+                                }}
+                            />
+                            <p style={{
+                                margin: '0.5rem 0 0 0',
+                                fontSize: '0.75rem',
+                                color: formData.designStyle.length > 900 ? '#ef4444' : '#9ca3af',
+                                textAlign: 'right',
+                                fontWeight: formData.designStyle.length > 900 ? '600' : '400'
+                            }}>
+                                {formData.designStyle.length} / 1000자
                             </p>
                         </div>
                     )}

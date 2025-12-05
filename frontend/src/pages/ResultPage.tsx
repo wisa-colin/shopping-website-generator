@@ -13,7 +13,13 @@ const ResultPage: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [site, setSite] = useState<SiteData | null>(null);
-    const [device, setDevice] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+    // Detect mobile on initial load
+    const [device, setDevice] = useState<'mobile' | 'tablet' | 'desktop'>(() => {
+        if (typeof window !== 'undefined') {
+            return window.innerWidth <= 768 ? 'mobile' : 'desktop';
+        }
+        return 'desktop';
+    });
     const [loading, setLoading] = useState(true);
     const [showInfoModal, setShowInfoModal] = useState(false);
     const [showPaletteModal, setShowPaletteModal] = useState(false);

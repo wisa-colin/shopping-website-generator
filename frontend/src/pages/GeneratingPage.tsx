@@ -1,31 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
 
 const GeneratingPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const formData = location.state as { productType: string; referenceUrl: string; designStyle: string };
+    const formData = location.state as { productType: string; referenceUrl: string; designStyle: string; generationMode?: string };
 
     const [status, setStatus] = useState('준비 중...');
     const [elapsedTime, setElapsedTime] = useState(0);
 
+    // Refs for cleanup and state management
+    const isMounted = useRef(true);
+    const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
     useEffect(() => {
+        isMounted.current = true;
+
         if (!formData) {
             navigate('/');
             return;
         }
 
-        // Timer
-        const timer = setInterval(() => {
-            setElapsedTime(prev => prev + 1);
+        // 1. Start Elapsed Timer
+        timerIntervalRef.current = setInterval(() => {
+            if (isMounted.current) {
+                setElapsedTime(prev => prev + 1);
+            }
         }, 1000);
 
-        const generate = async () => {
+        const startGeneration = async () => {
             try {
+                if (!isMounted.current) return;
                 setStatus('AI가 당신만의 쇼핑몰을 디자인하고 있습니다...');
 
                 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+                // Initial Generation Request
                 const res = await fetch(`${API_URL}/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -33,6 +44,7 @@ const GeneratingPage: React.FC = () => {
                         product_type: formData.productType,
                         reference_url: formData.referenceUrl || '',
                         design_style: formData.designStyle,
+                        generation_mode: (formData as any).generationMode || 'smart',
                     }),
                 });
 
@@ -41,19 +53,20 @@ const GeneratingPage: React.FC = () => {
                 const data = await res.json();
                 const siteId = data.id;
 
-                // Poll for completion
+                if (!isMounted.current) return;
                 setStatus('코드를 작성하고 있습니다...');
+
+                // 2. Start Polling (Recursive setTimeout with 3s delay)
                 let pollAttempts = 0;
-                const maxPollAttempts = 120; // 4 minutes (120 * 2 seconds)
+                const maxPollAttempts = 120;
 
-                const pollInterval = setInterval(async () => {
+                const poll = async () => {
+                    if (!isMounted.current) return;
+
                     pollAttempts++;
-
-                    // Timeout after max attempts
                     if (pollAttempts > maxPollAttempts) {
-                        clearInterval(pollInterval);
-                        clearInterval(timer);
-                        setStatus('시간 초과: 생성에 너무 오래 걸렸습니다. 다시 시도해주세요.');
+                        setStatus('시간 초과: 생성에 너무 오래 걸렸습니다.');
+                        clearInterval(timerIntervalRef.current!);
                         return;
                     }
 
@@ -63,46 +76,48 @@ const GeneratingPage: React.FC = () => {
                         if (resultRes.ok) {
                             const site = await resultRes.json();
                             if (site.status === 'completed') {
-                                clearInterval(pollInterval);
-                                clearInterval(timer);
                                 setStatus('완성되었습니다!');
-                                setTimeout(() => navigate(`/result/${siteId}`), 800);
+                                clearInterval(timerIntervalRef.current!);
+                                setTimeout(() => {
+                                    if (isMounted.current) navigate(`/result/${siteId}`);
+                                }, 800);
+                                return; // Stop polling
                             } else if (site.status === 'error') {
-                                clearInterval(pollInterval);
-                                clearInterval(timer);
                                 setStatus('오류가 발생했습니다: ' + site.error_message);
+                                clearInterval(timerIntervalRef.current!);
+                                return; // Stop polling
                             }
-                        } else if (resultRes.status === 404) {
-                            // 404 but still pending - continue polling
-                            console.log(`Poll attempt ${pollAttempts}: Site not ready yet`);
-                        } else {
-                            // Other errors - stop polling
-                            clearInterval(pollInterval);
-                            clearInterval(timer);
-                            setStatus(`서버 오류 (${resultRes.status}): 다시 시도해주세요.`);
                         }
-                    } catch (error) {
-                        console.error('Polling error:', error);
-                        // Network error - stop polling
-                        clearInterval(pollInterval);
-                        clearInterval(timer);
-                        setStatus('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+                    } catch (e) {
+                        console.error("Polling error", e);
                     }
-                }, 2000);
 
-                return () => {
-                    clearInterval(pollInterval);
-                    clearInterval(timer);
+                    // Schedule next poll ONLY if not finished
+                    // Increased delay to 3000ms to prevent "bombing"
+                    if (isMounted.current) {
+                        pollTimeoutRef.current = setTimeout(poll, 3000);
+                    }
                 };
+
+                // Start first poll
+                poll();
+
             } catch (err) {
-                clearInterval(timer);
-                setStatus('생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+                if (isMounted.current) {
+                    setStatus('생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+                    clearInterval(timerIntervalRef.current!);
+                }
             }
         };
 
-        generate();
+        startGeneration();
 
-        return () => clearInterval(timer);
+        // Cleanup function
+        return () => {
+            isMounted.current = false;
+            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+            if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+        };
     }, [formData, navigate]);
 
     const formatTime = (seconds: number) => {
@@ -111,7 +126,6 @@ const GeneratingPage: React.FC = () => {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Witty messages based on elapsed time
     const getWittyMessage = () => {
         if (elapsedTime < 10) return '멋진 디자인을 구상하고 있어요 ✨';
         if (elapsedTime < 30) return '완벽한 색상 조합을 찾는 중이에요 🎨';
@@ -133,27 +147,6 @@ const GeneratingPage: React.FC = () => {
             left: 0,
             backgroundColor: '#fafafa'
         }}>
-            {/* Top Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '1.5rem 2rem',
-                borderBottom: '1px solid #e5e5e5',
-                backgroundColor: 'white',
-                zIndex: 10
-            }}>
-                <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: '800', margin: 0, letterSpacing: '-0.03em' }}>
-                        생성 중
-                    </h1>
-                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
-                        평균 소요시간: 약 2분 내외
-                    </p>
-                </div>
-            </div>
-
-            {/* Main Content Area */}
             <div style={{
                 flex: 1,
                 overflow: 'auto',
@@ -162,161 +155,153 @@ const GeneratingPage: React.FC = () => {
                 justifyContent: 'center',
                 padding: '2rem'
             }}>
+                {/* Animation Wrapper */}
                 <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '16px',
-                    border: '1px solid #e5e5e5',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                    maxWidth: '600px',
+                    position: 'relative',
                     width: '100%',
-                    padding: '3rem 2.5rem',
-                    textAlign: 'center'
+                    maxWidth: '500px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
                 }}>
-                    {/* Animated Icon */}
+                    {/* Undulating Glow Layer (꿀렁이는 빛) */}
                     <div style={{
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '50%',
-                        backgroundColor: '#f3f4f6',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 2rem auto',
-                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                    }}>
-                        <Sparkles size={40} color="#000" />
-                    </div>
+                        position: 'absolute',
+                        top: '-20px', left: '-20px', right: '-20px', bottom: '-20px',
+                        background: 'linear-gradient(45deg, #ff9a9e, #fad0c4, #ffecd2, #a18cd1, #fbc2eb)',
+                        backgroundSize: '300% 300%',
+                        borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%', // Organic shape
+                        filter: 'blur(25px)', // Soft glow
+                        animation: 'undulate 8s ease-in-out infinite alternate, gradientShift 10s ease infinite',
+                        zIndex: 0,
+                        opacity: 0.6
+                    }}></div>
 
-                    {/* Status */}
-                    <h2 style={{
-                        fontSize: '1.5rem',
-                        fontWeight: '700',
-                        margin: '0 0 1rem 0',
-                        color: '#111827'
-                    }}>
-                        {status}
-                    </h2>
-
-                    {/* Witty Message */}
-                    <p style={{
-                        fontSize: '0.875rem',
-                        color: '#6b7280',
-                        margin: '0 0 2rem 0',
-                        lineHeight: '1.6'
-                    }}>
-                        {getWittyMessage()}
-                    </p>
-
-                    {/* Progress Bar */}
+                    {/* Second Layer for more complexity */}
                     <div style={{
-                        width: '100%',
-                        height: '8px',
-                        backgroundColor: '#f3f4f6',
-                        borderRadius: '4px',
-                        overflow: 'hidden',
-                        marginBottom: '1.5rem'
-                    }}>
-                        <div style={{
-                            height: '100%',
-                            backgroundColor: 'black',
-                            width: '100%',
-                            animation: 'loading 1.5s ease-in-out infinite'
-                        }} />
-                    </div>
+                        position: 'absolute',
+                        top: '-15px', left: '-15px', right: '-15px', bottom: '-15px',
+                        background: 'linear-gradient(135deg, #84fab0, #8fd3f4, #a1c4fd, #c2e9fb)',
+                        backgroundSize: '300% 300%',
+                        borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%',
+                        filter: 'blur(20px)',
+                        animation: 'undulate 10s ease-in-out infinite alternate-reverse, gradientShift 12s ease infinite',
+                        zIndex: 0,
+                        opacity: 0.5
+                    }}></div>
 
-                    {/* Elapsed Time */}
+                    {/* Content Card */}
                     <div style={{
-                        display: 'inline-block',
-                        padding: '0.5rem 1.5rem',
-                        backgroundColor: '#f9fafb',
-                        borderRadius: '8px',
-                        border: '1px solid #e5e7eb'
+                        position: 'relative',
+                        zIndex: 1,
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '24px',
+                        padding: '3rem 2.5rem',
+                        textAlign: 'center',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
+                        width: '100%'
                     }}>
+                        <h2 style={{
+                            fontSize: '1.5rem',
+                            fontWeight: '700',
+                            margin: '0 0 1rem 0',
+                            color: '#111827'
+                        }}>
+                            {status}
+                        </h2>
+
                         <p style={{
                             fontSize: '0.875rem',
-                            color: '#374151',
-                            margin: 0,
-                            fontWeight: '600',
-                            fontFamily: 'monospace'
+                            color: '#6b7280',
+                            margin: '0 0 2rem 0',
+                            lineHeight: '1.6'
                         }}>
-                            경과 시간: {formatTime(elapsedTime)}
+                            {getWittyMessage()}
                         </p>
-                    </div>
 
-                    {/* Product Info */}
-                    <div style={{
-                        marginTop: '2rem',
-                        padding: '1.5rem',
-                        backgroundColor: '#f9fafb',
-                        borderRadius: '8px',
-                        border: '1px solid #e5e7eb',
-                        textAlign: 'left'
-                    }}>
-                        <div style={{ marginBottom: '0.75rem' }}>
-                            <p style={{
-                                fontSize: '0.75rem',
-                                color: '#9ca3af',
-                                margin: '0 0 0.25rem 0',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }}>
-                                상품
-                            </p>
+                        <div style={{
+                            display: 'inline-block',
+                            padding: '0.5rem 1.5rem',
+                            backgroundColor: '#f9fafb',
+                            borderRadius: '12px',
+                            border: '1px solid #e5e7eb'
+                        }}>
                             <p style={{
                                 fontSize: '0.875rem',
-                                color: '#111827',
+                                color: '#374151',
                                 margin: 0,
-                                fontWeight: '600'
+                                fontWeight: '600',
+                                fontFamily: 'monospace'
                             }}>
-                                {formData?.productType}
+                                경과 시간: {formatTime(elapsedTime)}
                             </p>
                         </div>
-                        <div>
-                            <p style={{
-                                fontSize: '0.75rem',
-                                color: '#9ca3af',
-                                margin: '0 0 0.25rem 0',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }}>
-                                디자인 스타일
-                            </p>
-                            <p style={{
-                                fontSize: '0.875rem',
-                                color: '#111827',
-                                margin: 0,
-                                fontWeight: '400',
-                                lineHeight: '1.5'
-                            }}>
-                                {formData?.designStyle}
-                            </p>
+
+                        <div style={{
+                            marginTop: '2rem',
+                            padding: '1.5rem',
+                            backgroundColor: '#f9fafb',
+                            borderRadius: '16px',
+                            border: '1px solid #e5e7eb',
+                            textAlign: 'left'
+                        }}>
+                            <div style={{ marginBottom: '0.75rem' }}>
+                                <p style={{
+                                    fontSize: '0.75rem',
+                                    color: '#9ca3af',
+                                    margin: '0 0 0.25rem 0',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    상품
+                                </p>
+                                <p style={{
+                                    fontSize: '0.875rem',
+                                    color: '#111827',
+                                    margin: 0,
+                                    fontWeight: '600'
+                                }}>
+                                    {formData?.productType}
+                                </p>
+                            </div>
+                            <div>
+                                <p style={{
+                                    fontSize: '0.75rem',
+                                    color: '#9ca3af',
+                                    margin: '0 0 0.25rem 0',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    디자인 스타일
+                                </p>
+                                <p style={{
+                                    fontSize: '0.875rem',
+                                    color: '#111827',
+                                    margin: 0,
+                                    fontWeight: '400',
+                                    lineHeight: '1.5'
+                                }}>
+                                    {formData?.designStyle}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <style>{`
-                @keyframes pulse {
-                    0%, 100% {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                    50% {
-                        opacity: 0.7;
-                        transform: scale(1.05);
-                    }
+                @keyframes undulate {
+                    0% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: scale(1); }
+                    33% { border-radius: 50% 50% 60% 40% / 50% 60% 30% 60%; transform: scale(1.02); }
+                    66% { border-radius: 40% 60% 50% 50% / 40% 40% 60% 50%; transform: scale(0.98); }
+                    100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; transform: scale(1); }
                 }
 
-                @keyframes loading {
-                    0% {
-                        transform: translateX(-100%);
-                    }
-                    50% {
-                        transform: translateX(0%);
-                    }
-                    100% {
-                        transform: translateX(100%);
-                    }
+                @keyframes gradientShift {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
                 }
             `}</style>
         </div>
