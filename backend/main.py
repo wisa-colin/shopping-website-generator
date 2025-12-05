@@ -56,7 +56,7 @@ async def generate_site(request: GenerateRequest, background_tasks: BackgroundTa
             # Call Gemini
             result = await gemini_service.generate_website_content(
                 product_type=req.product_type,
-                reference_url=req.reference_url or "None",
+                reference_url=req.reference_url or "",
                 design_style=req.design_style,
                 mode=req.generation_mode or "smart"
             )
