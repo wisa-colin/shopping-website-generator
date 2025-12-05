@@ -238,6 +238,16 @@ const GeneratingPage: React.FC = () => {
                             </p>
                         </div>
 
+                        {/* Average Time Notice */}
+                        <p style={{
+                            fontSize: '0.75rem',
+                            color: '#9ca3af',
+                            margin: '0.5rem 0 0 0'
+                        }}>
+                            평균 소요시간: 약 2분 내외이지만..
+                            무료 클라우드 서비스라서 좀 더 걸릴지도..
+                        </p>
+
                         <div style={{
                             marginTop: '2rem',
                             padding: '1.5rem',
