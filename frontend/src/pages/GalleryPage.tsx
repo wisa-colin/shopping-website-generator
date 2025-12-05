@@ -25,9 +25,9 @@ const GalleryPage: React.FC = () => {
                 const res = await fetch(`${API_URL}/gallery`);
                 if (res.ok) {
                     const data = await res.json();
-                    // Sort by created_at desc to ensure correct order
+                    // Sort by created_at string comparison (more reliable for ISO-like strings)
                     const sortedData = data.sort((a: Site, b: Site) =>
-                        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                        (b.created_at || '').localeCompare(a.created_at || '')
                     );
                     setSites(sortedData);
                 }
