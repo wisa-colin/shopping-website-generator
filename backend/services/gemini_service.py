@@ -1,11 +1,11 @@
-import google.generativeai as genai
+from google import genai
+from google.genai.types import Tool, GenerateContentConfig
 import os
 import json
 import time
 import requests
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from bs4 import BeautifulSoup, Comment
 
 class GeminiService:
     def __init__(self):
@@ -18,23 +18,12 @@ class GeminiService:
         if not self.unsplash_access_key:
             print("WARNING: UNSPLASH_ACCESS_KEY not found, will use fallback images")
         
-        # Configure Gemini
-        genai.configure(api_key=api_key)
+        # Initialize new genai client
+        self.client = genai.Client(api_key=api_key)
         
-        # Get model name from environment or use default
-        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
-        print(f"Using Gemini model: {model_name}")
-        
-        # Initialize model with generation config
-        self.model = genai.GenerativeModel(
-            model_name=model_name,
-            generation_config={
-                "temperature": 0.8,
-                "top_p": 0.95,
-                "top_k": 40,
-                "max_output_tokens": 64000,
-            }
-        )
+        # Get model name from environment or use default (URL Context 지원 모델)
+        self.model_id = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        print(f"Using Gemini model: {self.model_id}")
         
         # Rate limiting
         self.last_request_time = 0
@@ -51,17 +40,18 @@ class GeminiService:
     def _extract_search_keywords(self, product_type: str) -> str:
         """Use Gemini to extract English search keywords from product description"""
         try:
-            prompt = f"""
-            Translate this product description into 2-3 simple English keywords for stock photo search.
-            Input: "{product_type}"
-            
-            Rules:
-            1. Output ONLY the keywords separated by spaces
-            2. No punctuation, no explanations
-            3. Focus on the visual object (e.g. "warm roasted sweet potato lollipop" -> "lollipop candy dessert")
-            """
-            
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_id,
+                contents=f"""
+                Translate this product description into 2-3 simple English keywords for stock photo search.
+                Input: "{product_type}"
+                
+                Rules:
+                1. Output ONLY the keywords separated by spaces
+                2. No punctuation, no explanations
+                3. Focus on the visual object (e.g. "warm roasted sweet potato lollipop" -> "lollipop candy dessert")
+                """
+            )
             keywords = response.text.strip()
             # Remove any accidental quotes or newlines
             keywords = keywords.replace('"', '').replace('\n', ' ')
@@ -140,99 +130,23 @@ class GeminiService:
         except Exception as e:
             print(f"[{datetime.now()}] Error fetching Unsplash images: {e}")
             return []
-    
-    def _clean_html(self, html_content: str) -> str:
-        """
-        Smart Filtering: Clean HTML to keep only structure and style-relevant tags.
-        Removes noise like SVG paths, base64 images, and long text.
-        """
-        try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
-            # 1. Remove completely useless tags
-            for tag in soup(['noscript', 'iframe', 'object', 'embed']):
-                tag.decompose()
-            
-            # 2. Remove comments
-            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-                comment.extract()
-            
-            # 3. Clean SVG: Keep tag but remove paths (too long)
-            for svg in soup.find_all('svg'):
-                svg.clear() # Remove children (paths)
-                svg.attrs = {k: v for k, v in svg.attrs.items() if k in ['class', 'id', 'width', 'height', 'viewbox']}
-                svg.string = "SVG_ICON" # Placeholder
-            
-            # 4. Clean Images: Remove base64 src
-            for img in soup.find_all('img'):
-                src = img.get('src', '')
-                if src.startswith('data:'):
-                    img['src'] = 'BASE64_IMAGE_REMOVED'
-                # Remove other attributes except critical ones
-                img.attrs = {k: v for k, v in img.attrs.items() if k in ['src', 'class', 'id', 'alt']}
-            
-            # 5. Clean Scripts: Keep src (libraries), remove inline content
-            for script in soup.find_all('script'):
-                if script.get('src'):
-                    # Keep external scripts (libraries)
-                    script.string = "" 
-                else:
-                    # Remove inline scripts completely (usually logic, not style)
-                    script.decompose()
-            
-            # 6. Clean Text: Truncate long text nodes
-            for text in soup.find_all(string=True):
-                if len(text) > 50 and text.parent.name not in ['style', 'script']:
-                    text.replace_with(text[:50] + "...")
-            
-            # 7. Clean Attributes: Remove data-*, aria-*, on* events
-            for tag in soup.find_all(True):
-                attrs = dict(tag.attrs)
-                for key in attrs:
-                    if key.startswith('data-') or key.startswith('aria-') or key.startswith('on'):
-                        del tag.attrs[key]
-            
-            return str(soup)
-            
-        except Exception as e:
-            print(f"[{datetime.now()}] HTML cleaning failed: {e}")
-            return html_content[:20000] # Fallback to truncation
 
-    async def generate_website_content(self, product_type: str, reference_url: str, design_style: str, mode: str = 'smart') -> dict:
+    async def generate_website_content(self, product_type: str, reference_url: str, design_style: str, mode: str = 'url_context') -> dict:
+        """
+        Generate website content using Gemini with URL Context.
+        
+        Args:
+            product_type: Type of product for the website
+            reference_url: Reference website URL for design inspiration
+            design_style: User's design style preferences
+            mode: 'url_context' (new) or 'legacy' (old requests-based method)
+        """
         print(f"[{datetime.now()}] Received generation request for: {product_type}")
         print(f"[{datetime.now()}] Design style (user request): {design_style}")
         print(f"[{datetime.now()}] Generation Mode: {mode.upper()}")
         
         self._check_rate_limits()
 
-        # Fetch Reference URL content based on mode
-        reference_html = ""
-        fetch_success = False
-        
-        if reference_url and reference_url.strip() and mode != 'none':
-            try:
-                print(f"[{datetime.now()}] Fetching reference URL content: {reference_url}")
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-                resp = requests.get(reference_url, headers=headers, timeout=10)
-                
-                if resp.status_code == 200:
-                    raw_html = resp.text
-                    print(f"[{datetime.now()}] Fetched {len(raw_html)} chars")
-                    
-                    if mode == 'smart':
-                        print(f"[{datetime.now()}] Applying Smart Filtering...")
-                        reference_html = self._clean_html(raw_html)
-                        print(f"[{datetime.now()}] Cleaned HTML length: {len(reference_html)} chars")
-                    else: # mode == 'raw'
-                        reference_html = raw_html[:100000] # Limit to 100k chars
-                        print(f"[{datetime.now()}] Using Raw HTML (truncated to 60k)")
-                    
-                    fetch_success = True
-                else:
-                    print(f"[{datetime.now()}] Failed to fetch reference URL: {resp.status_code}")
-            except Exception as e:
-                print(f"[{datetime.now()}] Error fetching reference URL: {e}")
-        
         # Fetch Unsplash images
         unsplash_images = self._get_unsplash_images(product_type, count=8)
         
@@ -254,26 +168,13 @@ class GeminiService:
         Choose keywords matching the product type (soap, cosmetics, food, etc.)
         """
         
-        # Build reference section
+        # Build reference section based on whether URL is provided
         if reference_url and reference_url.strip():
-            reference_source_info = ""
-            if fetch_success and reference_html:
-                reference_source_info = f"""
-**참고 사이트 HTML 소스 (스타일 분석용)**:
-```html
-{reference_html}
-```
-"""
-            elif mode == 'none':
-                 reference_source_info = "**참고 사이트 소스 제공 안함 (URL만 참조)**"
-
             reference_section = f"""
 ## 레퍼런스 분석 (최우선 - 반드시 수행)
 
-⚠️ **필수**: 아래 URL 및 제공된 소스코드를 분석하여 스타일을 완벽하게 복제하십시오.
+⚠️ **필수**: 아래 URL을 직접 방문하여 디자인 스타일을 완벽하게 분석하고 복제하십시오.
 **URL**: {reference_url}
-
-{reference_source_info}
 
 **반드시 분석해야 할 항목**:
 1. **컬러 팔레트**: 정확한 HEX 코드 추출 (Primary, Secondary, Accent, Background)
@@ -387,6 +288,12 @@ class GeminiService:
 - [ ] 프리미엄 퀄리티
 """
         
+        # Configure tools - URL Context 사용
+        tools = []
+        if reference_url and reference_url.strip():
+            tools.append({"url_context": {}})
+            print(f"[{datetime.now()}] Using URL Context for: {reference_url}")
+        
         # Retry logic
         max_retries = 2
         last_error = None
@@ -396,8 +303,38 @@ class GeminiService:
                 if attempt > 0:
                     print(f"[{datetime.now()}] Retry attempt {attempt + 1}/{max_retries}")
                     
-                print(f"[{datetime.now()}] Sending request to Gemini API...")
-                response = self.model.generate_content(prompt)
+                print(f"[{datetime.now()}] Sending request to Gemini API with URL Context...")
+                
+                # Use new genai client with URL Context
+                if tools:
+                    response = self.client.models.generate_content(
+                        model=self.model_id,
+                        contents=prompt,
+                        config=GenerateContentConfig(
+                            tools=tools,
+                            temperature=0.8,
+                            top_p=0.95,
+                            top_k=40,
+                            max_output_tokens=64000,
+                        )
+                    )
+                    
+                    # Log URL Context metadata if available
+                    if hasattr(response.candidates[0], 'url_context_metadata'):
+                        metadata = response.candidates[0].url_context_metadata
+                        print(f"[{datetime.now()}] URL Context metadata: {metadata}")
+                else:
+                    response = self.client.models.generate_content(
+                        model=self.model_id,
+                        contents=prompt,
+                        config=GenerateContentConfig(
+                            temperature=0.8,
+                            top_p=0.95,
+                            top_k=40,
+                            max_output_tokens=64000,
+                        )
+                    )
+                
                 print(f"[{datetime.now()}] Received response from Gemini")
                 
                 # Extract text
@@ -457,7 +394,6 @@ class GeminiService:
                     # Try to parse as JSON (old way) just in case
                     try:
                         print(f"[{datetime.now()}] Separator not found, trying legacy JSON parse...")
-                        # ... (legacy parsing logic omitted for brevity, assuming new prompt works)
                         # Actually, let's just treat the whole thing as HTML if it looks like HTML
                         if "<html" in raw_text.lower():
                             print(f"[{datetime.now()}] Treating entire response as HTML")
