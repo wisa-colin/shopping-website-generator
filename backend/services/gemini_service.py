@@ -224,7 +224,7 @@ class GeminiService:
                         reference_html = self._clean_html(raw_html)
                         print(f"[{datetime.now()}] Cleaned HTML length: {len(reference_html)} chars")
                     else: # mode == 'raw'
-                        reference_html = raw_html[:60000] # Limit to 60k chars
+                        reference_html = raw_html[:100000] # Limit to 100k chars
                         print(f"[{datetime.now()}] Using Raw HTML (truncated to 60k)")
                     
                     fetch_success = True
