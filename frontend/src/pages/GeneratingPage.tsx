@@ -44,7 +44,7 @@ const GeneratingPage: React.FC = () => {
                         product_type: formData.productType,
                         reference_url: formData.referenceUrl || '',
                         design_style: formData.designStyle,
-                        generation_mode: (formData as any).generationMode || 'smart',
+                        generation_mode: formData.generationMode || 'vision',
                     }),
                 });
 

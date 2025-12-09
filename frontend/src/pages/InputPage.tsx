@@ -5,12 +5,25 @@ import { Sparkles, Grid, ArrowRight, ArrowLeft } from 'lucide-react';
 const InputPage: React.FC = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
+    const [secretModeVisible, setSecretModeVisible] = useState(false);
     const [formData, setFormData] = useState({
         productType: '',
         designStyle: '',
         referenceUrl: '',
-        generationMode: 'smart'
+        generationMode: 'hybrid' // Default to hybrid
     });
+
+    // Secret mode shortcut listener
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.altKey && e.shiftKey && (e.key === 'j' || e.key === 'J')) {
+                setSecretModeVisible(prev => !prev);
+                console.log("Secret mode toggled");
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const handleNext = () => {
         if (step === 1 && !formData.productType) {
@@ -211,48 +224,52 @@ const InputPage: React.FC = () => {
                                 입력하지 않아도 괜찮습니다
                             </p>
 
-                            {/* Analysis Mode Selection (Hidden for now, default is smart) */}
-                            <div style={{
-                                display: 'none', // Hidden as per user request
-                                borderTop: '1px solid #f3f4f6',
-                                paddingTop: '1.5rem',
-                                marginTop: '1.5rem'
-                            }}>
-                                <label style={{
-                                    display: 'block',
-                                    fontSize: '0.875rem',
-                                    fontWeight: '600',
-                                    color: '#374151',
-                                    marginBottom: '0.5rem'
+                            {/* Analysis Mode Selection (Secret) */}
+                            {secretModeVisible && (
+                                <div style={{
+                                    borderTop: '1px solid #f3f4f6',
+                                    paddingTop: '1.5rem',
+                                    marginTop: '1.5rem',
+                                    animation: 'fadeIn 0.3s ease-in'
                                 }}>
-                                    분석 모드 (테스트용)
-                                </label>
-                                <select
-                                    value={formData.generationMode || 'smart'}
-                                    onChange={(e) => setFormData({ ...formData, generationMode: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.75rem',
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '8px',
+                                    <label style={{
+                                        display: 'block',
                                         fontSize: '0.875rem',
-                                        backgroundColor: 'white',
-                                        outline: 'none',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    <option value="smart">✨ 스마트 필터링 (권장 - 핵심 구조만 분석)</option>
-                                    <option value="none">🔗 HTML 소스 미제공 (URL만 전달)</option>
-                                    <option value="raw">📄 전체 소스 제공 (기존 방식)</option>
-                                </select>
-                                <p style={{
-                                    fontSize: '0.75rem',
-                                    color: '#6b7280',
-                                    marginTop: '0.5rem'
-                                }}>
-                                    * 스마트 필터링: 불필요한 태그를 제거하여 분석 정확도를 높입니다.
-                                </p>
-                            </div>
+                                        fontWeight: '600',
+                                        color: '#ef4444', // Red color to indicate advanced/secret
+                                        marginBottom: '0.5rem'
+                                    }}>
+                                        🕵️ [SECRET] Generation Mode
+                                    </label>
+                                    <select
+                                        value={formData.generationMode || 'hybrid'}
+                                        onChange={(e) => setFormData({ ...formData, generationMode: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.75rem',
+                                            border: '1px solid #ef4444',
+                                            borderRadius: '8px',
+                                            fontSize: '0.875rem',
+                                            backgroundColor: '#fef2f2',
+                                            outline: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <option value="hybrid">Hybrid (Vision + URL Context)</option>
+                                        <option value="vision">Vision Only</option>
+                                        <option value="url_context">URL Context Only</option>
+                                        <option value="html">HTML Parsing Only</option>
+                                    </select>
+                                    <p style={{
+                                        fontSize: '0.75rem',
+                                        color: '#ef4444',
+                                        marginTop: '0.5rem',
+                                        fontWeight: 500
+                                    }}>
+                                        * 개발자 전용 모드
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
 

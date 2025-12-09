@@ -5,9 +5,12 @@ import GeneratingPage from './pages/GeneratingPage';
 import ResultPage from './pages/ResultPage';
 import GalleryPage from './pages/GalleryPage';
 
+import LockOverlay from './components/LockOverlay';
+
 const App: React.FC = () => {
   return (
     <Router>
+      <LockOverlay />
       <Routes>
         <Route path="/" element={<InputPage />} />
         <Route path="/generating" element={<GeneratingPage />} />

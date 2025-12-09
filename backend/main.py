@@ -1,3 +1,10 @@
+import sys
+import asyncio
+
+# Configure asyncio policy for Windows to support Playwright
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -32,7 +39,7 @@ class GenerateRequest(BaseModel):
     product_type: str
     reference_url: Optional[str] = None
     design_style: str
-    generation_mode: Optional[str] = "smart" # smart, none, raw
+    generation_mode: Optional[str] = "vision"  # vision, url_context, none
 
 class GenerateResponse(BaseModel):
     id: str
@@ -58,7 +65,7 @@ async def generate_site(request: GenerateRequest, background_tasks: BackgroundTa
                 product_type=req.product_type,
                 reference_url=req.reference_url or "",
                 design_style=req.design_style,
-                mode=req.generation_mode or "smart"
+                mode=req.generation_mode or "vision"
             )
             
             html_content = result.get("html", "")

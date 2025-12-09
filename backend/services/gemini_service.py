@@ -1,9 +1,11 @@
 from google import genai
-from google.genai.types import Tool, GenerateContentConfig
+from google.genai.types import Tool, GenerateContentConfig, Part
 import os
 import json
 import time
+import base64
 import requests
+import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
@@ -21,13 +23,96 @@ class GeminiService:
         # Initialize new genai client
         self.client = genai.Client(api_key=api_key)
         
-        # Get model name from environment or use default (URL Context 지원 모델)
+        # Get model name from environment or use default (Vision 지원 모델)
         self.model_id = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         print(f"Using Gemini model: {self.model_id}")
         
         # Rate limiting
         self.last_request_time = 0
         self.min_request_interval = 1.0  # seconds
+        
+        # Playwright browser instance (lazy init)
+        self._playwright = None
+        self._browser = None
+    
+    async def _capture_screenshot(self, url: str) -> Optional[bytes]:
+        """Capture a screenshot of the given URL using Playwright (Sync version in thread)"""
+        return await asyncio.get_event_loop().run_in_executor(None, self._capture_screenshot_sync, url)
+
+    def _capture_screenshot_sync(self, url: str) -> Optional[bytes]:
+        """Synchronous implementation of screenshot capture"""
+        from playwright.sync_api import sync_playwright
+        
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                # Create new page with extended viewport (4000px) to render content
+                page = browser.new_page(viewport={"width": 1920, "height": 4000})
+                
+                try:
+                    print(f"[{datetime.now()}] Navigating to: {url}")
+                    # Navigate with timeout and wait for network idle
+                    page.goto(url, wait_until="networkidle", timeout=30000)
+                    
+                    # ---------------------------------------------------------
+                    # Attempt to close popups by clicking common text buttons
+                    # ---------------------------------------------------------
+                    print(f"[{datetime.now()}] Attempting to close popups via click...")
+                    # Removed "X" as it causes unintended navigation by clicking links
+                    popup_keywords = ["오늘 하루 보지않기", "오늘 하루 보지 않기", "오늘 하루 열지 않음", "닫기", "Close", "창 닫기", "Don't show again"]
+                    
+                    for keyword in popup_keywords:
+                        try:
+                            # Find visible elements containing the keyword
+                            # Use a short timeout to skip quickly if not found
+                            locators = page.get_by_text(keyword)
+                            count = locators.count()
+                            
+                            if count > 0:
+                                # Click found buttons (try mostly visible ones)
+                                for i in range(count):
+                                    try:
+                                        if locators.nth(i).is_visible():
+                                            print(f"[{datetime.now()}] Clicking popup button: '{keyword}'")
+                                            locators.nth(i).click(timeout=500)
+                                            time.sleep(0.2) # Short wait for animation
+                                    except Exception:
+                                        pass # Ignore click failures (e.g., covered element)
+                        except Exception:
+                            pass
+                    # ---------------------------------------------------------
+
+                    # Wait a bit more for any animations/lazy loading
+                    time.sleep(2)
+                    
+                    # Capture optimized screenshot (JPEG + layout focused)
+                    # Clip to top 4000px
+                    screenshot = page.screenshot(
+                        type="jpeg",
+                        quality=70,
+                        clip={"x": 0, "y": 0, "width": 1920, "height": 4000}
+                    )
+                    
+                    # Save locally for debugging
+                    try:
+                        with open("debug_screenshot.jpg", "wb") as f:
+                            f.write(screenshot)
+                        print(f"[{datetime.now()}] Saved debug screenshot to 'debug_screenshot.jpg'")
+                    except Exception as e:
+                        print(f"[{datetime.now()}] Failed to save debug screenshot: {e}")
+                    
+                    print(f"[{datetime.now()}] Screenshot captured: {len(screenshot)} bytes (JPEG/4000px)")
+                    return screenshot
+                    
+                finally:
+                    page.close()
+                    browser.close()
+                    
+        except Exception as e:
+            import traceback
+            print(f"[{datetime.now()}] Screenshot capture failed: {repr(e)}")
+            print(traceback.format_exc())
+            return None
     
     def _check_rate_limits(self):
         """Simple rate limiting to avoid hitting API limits"""
@@ -61,6 +146,64 @@ class GeminiService:
             print(f"[{datetime.now()}] Keyword extraction failed: {e}")
             # Fallback to simple replacement
             return product_type.replace("천연 재료로 만든 ", "").replace("수제 ", "")
+
+    def _clean_html(self, html_content: str) -> str:
+        """
+        Smart Filtering: Clean HTML to keep only structure and style-relevant tags.
+        Removes noise like SVG paths, base64 images, and long text.
+        """
+        from bs4 import BeautifulSoup, Comment
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+
+            # 1. Remove completely useless tags
+            for tag in soup(['noscript', 'iframe', 'object', 'embed']):
+                tag.decompose()
+
+            # 2. Remove comments
+            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+                comment.extract()
+
+            # 3. Clean SVG: Keep tag but remove paths (too long)
+            for svg in soup.find_all('svg'):
+                svg.clear() # Remove children (paths)
+                svg.attrs = {k: v for k, v in svg.attrs.items() if k in ['class', 'id', 'width', 'height', 'viewbox']}
+                svg.string = "SVG_ICON" # Placeholder
+
+            # 4. Clean Images: Remove base64 src
+            for img in soup.find_all('img'):
+                src = img.get('src', '')
+                if src.startswith('data:'):
+                    img['src'] = 'BASE64_IMAGE_REMOVED'
+                # Remove other attributes except critical ones
+                img.attrs = {k: v for k, v in img.attrs.items() if k in ['src', 'class', 'id', 'alt']}
+
+            # 5. Clean Scripts: Keep src (libraries), remove inline content
+            for script in soup.find_all('script'):
+                if script.get('src'):
+                    # Keep external scripts (libraries)
+                    script.string = "" 
+                else:
+                    # Remove inline scripts completely (usually logic, not style)
+                    script.decompose()
+
+            # 6. Clean Text: Truncate long text nodes
+            for text in soup.find_all(string=True):
+                if len(text) > 50 and text.parent.name not in ['style', 'script']:
+                    text.replace_with(text[:50] + "...")
+
+            # 7. Clean Attributes: Remove data-*, aria-*, on* events
+            for tag in soup.find_all(True):
+                attrs = dict(tag.attrs)
+                for key in attrs:
+                    if key.startswith('data-') or key.startswith('aria-') or key.startswith('on'):
+                        del tag.attrs[key]
+
+            return str(soup)
+
+        except Exception as e:
+            print(f"[{datetime.now()}] HTML cleaning failed: {e}")
+            return html_content[:20000] # Fallback to truncation
 
     def _get_unsplash_images(self, product_type: str, count: int = 8) -> List[str]:
         """Fetch product images from Unsplash API"""
@@ -131,21 +274,28 @@ class GeminiService:
             print(f"[{datetime.now()}] Error fetching Unsplash images: {e}")
             return []
 
-    async def generate_website_content(self, product_type: str, reference_url: str, design_style: str, mode: str = 'url_context') -> dict:
+
+
+    async def generate_website_content(self, product_type: str, reference_url: str, design_style: str, mode: str = 'vision') -> dict:
         """
-        Generate website content using Gemini with URL Context.
+        Generate website content using Gemini with Vision (screenshot analysis).
         
         Args:
             product_type: Type of product for the website
             reference_url: Reference website URL for design inspiration
             design_style: User's design style preferences
-            mode: 'url_context' (new) or 'legacy' (old requests-based method)
+            mode: 'vision' (screenshot + Gemini Vision), 'url_context', or 'none'
         """
         print(f"[{datetime.now()}] Received generation request for: {product_type}")
         print(f"[{datetime.now()}] Design style (user request): {design_style}")
         print(f"[{datetime.now()}] Generation Mode: {mode.upper()}")
         
         self._check_rate_limits()
+
+        # Capture screenshot if vision or hybrid mode and URL provided
+        screenshot_data = None
+        if (mode == 'vision' or mode == 'hybrid') and reference_url and reference_url.strip():
+            screenshot_data = await self._capture_screenshot(reference_url)
 
         # Fetch Unsplash images
         unsplash_images = self._get_unsplash_images(product_type, count=8)
@@ -168,33 +318,84 @@ class GeminiService:
         Choose keywords matching the product type (soap, cosmetics, food, etc.)
         """
         
-        # Build reference section based on whether URL is provided
-        if reference_url and reference_url.strip():
+        # Build reference section based on mode
+        html_content = ""
+        
+        if screenshot_data:
+            # Hybrid or Vision Mode
             reference_section = f"""
-## 레퍼런스 분석 (최우선 - 반드시 수행)
+## � 레퍼런스 분석 (Vision/Hybrid)
+⚠️ **필수**: 첨부된 **스크린샷**을 분석하여 디자인 스타일을 완벽하게 복제하십시오.
+**원본 URL**: {reference_url}
 
-⚠️ **필수**: 아래 URL을 직접 방문하여 디자인 스타일을 완벽하게 분석하고 복제하십시오.
+**Vision 분석 가이드**:
+1. **레이아웃 & 배치**: 헤더, 배너 위치, 카드 그리드 구조를 시각적으로 파악하십시오.
+2. **스타일**: 여백, 비율, 폰트 분위기를 확인하십시오.
+3. **구현 규칙**:
+   - 스크린샷과 **90% 이상 동일한 레이아웃** 구현
+   - 팝업/모달은 **무시하고** 본문 디자인만 구현
+   - 잘린 하단부는 **자연스럽게 확장**하여 완성 (Footer 필수)
+"""
+            if mode == 'hybrid':
+                 reference_section += "\n- **URL Context**: 추가로 제공되는 URL Context 도구를 사용하여 텍스트/데이터의 정확성을 보완하십시오."
+
+        elif mode == 'html' and reference_url:
+            # HTML Parsing Mode (Smart Filtering)
+            html_content = ""
+            try:
+                print(f"[{datetime.now()}] Fetching raw HTML for Smart Filtering from: {reference_url}")
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(None, lambda: requests.get(reference_url, timeout=10, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }))
+                
+                if response.status_code == 200:
+                    html_content = self._clean_html(response.text)
+                    print(f"[{datetime.now()}] Smart Filtering applied. Length: {len(html_content)}")
+                else:
+                    html_content = f"Error: Failed to fetch URL (Status {response.status_code})"
+            except Exception as e:
+                html_content = f"Error: {str(e)}"
+
+            reference_section = f"""
+## �📄 레퍼런스 분석 (HTML Code - Smart Filtered)
+⚠️ **필수**: 아래 제공된 **HTML 소스코드**를 분석하여 구조와 스타일을 파악하십시오.
+**원본 URL**: {reference_url}
+
+**분석 데이터 (Smart Filtering 적용)**:
+```html
+{html_content}
+```
+
+**분석 가이드**:
+1. **구조 파악**: `SVG_ICON` 위치, 헤더/푸터 구조, 클래스명을 통해 레이아웃을 파악하십시오.
+2. **스타일 추론**: 남겨진 외부 스크립트/CSS 링크와 인라인 스타일을 참고하십시오.
+3. **내용 채우기**: 메타 태그와 남겨진 텍스트를 바탕으로 정확한 컨텐츠를 생성하십시오.
+"""
+
+        elif mode == 'url_context' and reference_url:
+            # URL Context Only Mode
+            reference_section = f"""
+## 🌐 레퍼런스 분석 (URL Context)
+⚠️ **필수**: **URL Context 도구(Google Search Grounding)**를 사용하여 해당 사이트의 최신 정보를 직접 조회하고 반영하십시오.
+**대상 URL**: {reference_url}
+
+**분석 가이드**:
+1. 사이트의 구조, 판매 상품, 브랜드 컬러 등을 도구를 통해 파악하십시오.
+2. 시각적 정보(스크린샷)가 없으므로 도구 조회 결과에 의존하여 레이아웃을 구성하십시오.
+"""
+
+        elif reference_url and reference_url.strip():
+            # General Fallback
+            reference_section = f"""
+## 레퍼런스 분석 (General)
 **URL**: {reference_url}
-
-**반드시 분석해야 할 항목**:
-1. **컬러 팔레트**: 정확한 HEX 코드 추출 (Primary, Secondary, Accent, Background)
-2. **폰트**: 사용된 폰트 패밀리, 크기, 굵기
-3. **레이아웃**: Max-width, 여백, 섹션 구조, 그리드 시스템
-4. **인터랙션**: 애니메이션 종류, 호버 효과, 전환 속도
-5. **전체 분위기**: 디자인 톤앤매너
-
-**구현 규칙**:
-- 레퍼런스 사이트와 **90% 이상 동일한 스타일**로 구현
-- 동일한 컬러 코드, 동일한 레이아웃(mobile only/first 포함) 구조 사용
-- 사용된 라이브러리가 있다면 동일하게 적용 (GSAP, Swiper 등)
-- 사용자 요청과 충돌 시에만 사용자 요청 우선
+해당 URL의 스타일을 참고하여 디자인하십시오.
 """
         else:
             reference_section = """
 ## 기본 디자인 참조
 - 레퍼런스 없음 → Awwwards E-commerce 수준 퀄리티 적용
-- 참고: https://www.awwwards.com/websites/e-commerce/
-- UI 참고: https://uiverse.io/elements
 """
 
         prompt = f"""
@@ -223,9 +424,9 @@ class GeminiService:
 
 | 순위 | 항목 | 설명 |
 |:---:|------|------|
-| 1 | **사용자 요청사항** | "{design_style}" - 무조건 반영 |
-| 2 | 레퍼런스 스타일 | 80-90% 유사하게 구현 |
-| 3 | 기본 디자인 표준 | Awwwards 수준 |
+-| 1 | **사용자 요청사항** | "{design_style}" - 무조건 반영 |
+-| 2 | 레퍼런스 스타일 | 80-90% 유사하게 구현 |
+-| 3 | 기본 디자인 표준 | Awwwards 수준 |
 
 ---
 
@@ -233,10 +434,10 @@ class GeminiService:
 
 | 상품 | 레퍼런스 | 처리 |
 |------|----------|------|
-| test/테스트 | 있음 | 레퍼런스 클론 코딩 |
-| test/테스트 | 없음 | 최소 기본 사이트 |
-| 일반 | 있음 | 레퍼런스 스타일 + 상품 반영 |
-| 일반 | 없음 | 창의적 독창 디자인 |
+-| test/테스트 | 있음 | 레퍼런스 클론 코딩 |
+-| test/테스트 | 없음 | 최소 기본 사이트 |
+-| 일반 | 있음 | 레퍼런스 스타일 + 상품 반영 |
+-| 일반 | 없음 | 창의적 독창 디자인 |
 
 ---
 
@@ -244,7 +445,7 @@ class GeminiService:
 
 ## 🎯 사용자 요청 최우선
 **사용자 요청사항 "{design_style}"이 있다면 → 그 요청을 100% 따르시오.**
-(단일 hero를 원하면 단일 hero로, 미니멀을 원하면 미니멀로)
+-(단일 hero를 원하면 단일 hero로, 미니멀을 원하면 미니멀로)
 
 ## 📐 기본 레이아웃 (사용자 요청이 없거나 애매할 때)
 사용자가 특정 레이아웃을 지정하지 않았다면, 다음 중 **창의적으로 선택**:
@@ -262,6 +463,15 @@ class GeminiService:
 - **인터랙션**: 부드럽고 화려한 마이크로 애니메이션 필수
 - **호버**: 버튼, 카드, 이미지에 세련된 효과
 
+## 🎠 기술적 구현 가이드 (오류 방지 필수)
+1. **Swiper.js (캐러셀) 안전 구현**:
+   - `loop: true` 옵션 사용 시 반드시 **슬라이드 개수를 충분히(최소 4개 이상)** 확보하십시오. (복제된 슬라이드 부족 오류 방지)
+   - Swiper 초기화(`new Swiper(...)`)는 반드시 `<body>` 닫는 태그 직전의 `<script>` 안에서 수행하십시오.
+   - `pagination`이나 `navigation` 요소가 HTML에 실제로 존재하는지 확인하십시오.
+2. **페이지 완성도**:
+   - 코드가 중간에 잘리지 않게 하십시오.
+   - 반드시 `<footer`> 태그로 끝나야 합니다.
+
 {image_instruction}
 
 ---
@@ -275,7 +485,7 @@ class GeminiService:
 <body>...</body>
 </html>
 <<<METADATA_SEPARATOR>>>
-{{"explanation": "...", "key_points": ["..."], "color_palette": ["..."]}}
+{{"explanation": "디자인 의도를 자연스러운 문장형 서술로 작성하세요 (번호 매기기 금지).", "key_points": ["..."], "color_palette": ["..."]}}
 ```
 
 ---
@@ -288,11 +498,22 @@ class GeminiService:
 - [ ] 프리미엄 퀄리티
 """
         
-        # Configure tools - URL Context 사용
+        # Build content with optional screenshot
+        contents = []
+        
+        if screenshot_data:
+            # Add screenshot as image part
+            print(f"[{datetime.now()}] Adding screenshot to Gemini request (Vision mode)")
+            contents.append(Part.from_bytes(data=screenshot_data, mime_type="image/png"))
+            contents.append(prompt)
+        else:
+            contents.append(prompt)
+        
+        # Configure tools - Enable URL Context based on mode
         tools = []
-        if reference_url and reference_url.strip():
+        if (mode == 'hybrid' or mode == 'url_context') and reference_url and reference_url.strip():
             tools.append({"url_context": {}})
-            print(f"[{datetime.now()}] Using URL Context for: {reference_url}")
+            print(f"[{datetime.now()}] Enabled URL Context tool for {mode} analysis: {reference_url}")
         
         # Retry logic
         max_retries = 2
@@ -303,42 +524,52 @@ class GeminiService:
                 if attempt > 0:
                     print(f"[{datetime.now()}] Retry attempt {attempt + 1}/{max_retries}")
                     
-                print(f"[{datetime.now()}] Sending request to Gemini API with URL Context...")
+                print(f"[{datetime.now()}] Sending request to Gemini API...")
                 
-                # Use new genai client with URL Context
+                # Generate content with or without tools
+                config_params = {
+                    "temperature": 0.8,
+                    "top_p": 0.95,
+                    "top_k": 40,
+                    "max_output_tokens": 64000,
+                }
+                
                 if tools:
-                    response = self.client.models.generate_content(
-                        model=self.model_id,
-                        contents=prompt,
-                        config=GenerateContentConfig(
-                            tools=tools,
-                            temperature=0.8,
-                            top_p=0.95,
-                            top_k=40,
-                            max_output_tokens=64000,
-                        )
-                    )
-                    
-                    # Log URL Context metadata if available
-                    if hasattr(response.candidates[0], 'url_context_metadata'):
-                        metadata = response.candidates[0].url_context_metadata
-                        print(f"[{datetime.now()}] URL Context metadata: {metadata}")
-                else:
-                    response = self.client.models.generate_content(
-                        model=self.model_id,
-                        contents=prompt,
-                        config=GenerateContentConfig(
-                            temperature=0.8,
-                            top_p=0.95,
-                            top_k=40,
-                            max_output_tokens=64000,
-                        )
-                    )
+                    config_params["tools"] = tools
+                
+                response = self.client.models.generate_content(
+                    model=self.model_id,
+                    contents=contents,
+                    config=GenerateContentConfig(**config_params)
+                )
+                
+                # Log URL Context metadata if available
+                if hasattr(response.candidates[0], 'url_context_metadata'):
+                    metadata = response.candidates[0].url_context_metadata
+                    print(f"[{datetime.now()}] URL Context metadata: {metadata}")
                 
                 print(f"[{datetime.now()}] Received response from Gemini")
                 
-                # Extract text
-                raw_text = response.text.strip()
+                # Extract text safely (handling tool use responses)
+                raw_text = ""
+                try:
+                    if response.text:
+                        raw_text = response.text.strip()
+                except Exception:
+                    # Fallback: iterate through parts if .text property fails (common with tools)
+                    try:
+                        if response.candidates and response.candidates[0].content.parts:
+                            for part in response.candidates[0].content.parts:
+                                if part.text:
+                                    raw_text += part.text
+                        raw_text = raw_text.strip()
+                    except Exception as e:
+                        print(f"[{datetime.now()}] Failed to extract text parts: {e}")
+
+                if not raw_text:
+                    print(f"[{datetime.now()}] Error: Empty response text received")
+                    raise ValueError("Empty response text from Gemini")
+
                 print(f"[{datetime.now()}] Raw response length: {len(raw_text)} chars")
                 
                 # Clean up markdown fencing if present (sometimes Gemini still adds it)
@@ -378,10 +609,30 @@ class GeminiService:
                             "color_palette": ["#333333", "#ffffff"]
                         }
                     
+                    # Clean HTML: Remove any text before <!DOCTYPE or <html
+                    html_clean = html_content
+                    prefix_explanation = ""
+                    
+                    # Find the start of actual HTML
+                    doctype_pos = html_content.lower().find("<!doctype")
+                    html_tag_pos = html_content.lower().find("<html")
+                    
+                    if doctype_pos != -1:
+                        start_pos = doctype_pos
+                    elif html_tag_pos != -1:
+                        start_pos = html_tag_pos
+                    else:
+                        start_pos = 0
+                    
+                    if start_pos > 0:
+                        prefix_explanation = html_content[:start_pos].strip()
+                        html_clean = html_content[start_pos:]
+                        print(f"[{datetime.now()}] Removed {len(prefix_explanation)} chars of prefix text from HTML")
+                    
                     # Construct final result
                     result = {
-                        "html": html_content,
-                        "explanation": metadata.get("explanation", ""),
+                        "html": html_clean,
+                        "explanation": metadata.get("explanation", prefix_explanation or ""),
                         "key_points": metadata.get("key_points", []),
                         "color_palette": metadata.get("color_palette", [])
                     }
@@ -397,8 +648,25 @@ class GeminiService:
                         # Actually, let's just treat the whole thing as HTML if it looks like HTML
                         if "<html" in raw_text.lower():
                             print(f"[{datetime.now()}] Treating entire response as HTML")
+                            
+                            # Clean HTML: Remove any text before <!DOCTYPE or <html
+                            html_clean = raw_text
+                            doctype_pos = raw_text.lower().find("<!doctype")
+                            html_tag_pos = raw_text.lower().find("<html")
+                            
+                            if doctype_pos != -1:
+                                start_pos = doctype_pos
+                            elif html_tag_pos != -1:
+                                start_pos = html_tag_pos
+                            else:
+                                start_pos = 0
+                            
+                            if start_pos > 0:
+                                html_clean = raw_text[start_pos:]
+                                print(f"[{datetime.now()}] Removed prefix text from HTML (fallback)")
+                            
                             return {
-                                "html": raw_text,
+                                "html": html_clean,
                                 "explanation": "자동 생성된 디자인",
                                 "key_points": [],
                                 "color_palette": []
@@ -418,6 +686,16 @@ class GeminiService:
         
         # If we get here, all retries failed
         raise ValueError(f"Failed to generate content after {max_retries} attempts. Last error: {last_error}")
+    
+    async def cleanup(self):
+        """Clean up browser resources"""
+        if self._browser:
+            await self._browser.close()
+            self._browser = None
+        if self._playwright:
+            await self._playwright.stop()
+            self._playwright = None
+        print(f"[{datetime.now()}] Playwright browser cleaned up")
 
 # Create singleton instance
 gemini_service = GeminiService()
