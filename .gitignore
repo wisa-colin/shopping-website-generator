@@ -3,7 +3,6 @@
 backend/venv/
 backend/.env
 backend/*.db
-backend/*.pyc
 !backend/sites.db
 backend/*.sqlite3
 
