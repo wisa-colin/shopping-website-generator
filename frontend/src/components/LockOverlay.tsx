@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 const LockOverlay: React.FC = () => {
     const [isVisible, setIsVisible] = useState(true);
     const [keystrokes, setKeystrokes] = useState<string[]>([]);
-    const SECRET_CODE = ['k', 'i', 'l', 'l', 'o', 'v', 'e', 'r', 'l', 'a', 'y'];
+    const SECRET_CODE = ['w', 'o', 'n'];
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -56,8 +56,9 @@ const LockOverlay: React.FC = () => {
                 letterSpacing: '0.2em',
                 color: '#333'
             }}>
-                GENERATOR
+                E-commerce Generator.
             </h1>
+            {/* <span>{keystrokes.join('')}</span> */}
         </div>
     );
 };
