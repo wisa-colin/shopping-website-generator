@@ -45,7 +45,7 @@ class GeminiService:
         
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
+                browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
                 # Create new page with extended viewport (4000px) to render content
                 page = browser.new_page(viewport={"width": 1920, "height": 4000})
                 
