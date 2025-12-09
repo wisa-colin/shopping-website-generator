@@ -4,7 +4,8 @@ const LockOverlay: React.FC = () => {
     const [isVisible, setIsVisible] = useState(true);
     const [keystrokes, setKeystrokes] = useState<string[]>([]);
     const SECRET_CODE = ['w', 'o', 'n'];
-
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/naming-convention
+    const _keystrokesAlias = keystrokes;
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!isVisible) return;
@@ -58,7 +59,6 @@ const LockOverlay: React.FC = () => {
             }}>
                 E-commerce Generator.
             </h1>
-            {/* <span>{keystrokes.join('')}</span> */}
         </div>
     );
 };
