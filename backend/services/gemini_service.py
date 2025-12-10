@@ -55,8 +55,9 @@ class GeminiService:
                 try:
                     print(f"[{datetime.now()}] Navigating to: {url}")
                     # Navigate with timeout and wait for network idle
-                    page.goto(url, wait_until="networkidle", timeout=30000)
-                    
+                    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                    # page.goto(url, wait_until="networkidle", timeout=30000)
+                    time.sleep(3)
                     # ---------------------------------------------------------
                     # Attempt to close popups by clicking common text buttons
                     # ---------------------------------------------------------
@@ -78,7 +79,7 @@ class GeminiService:
                                         if locators.nth(i).is_visible():
                                             print(f"[{datetime.now()}] Clicking popup button: '{keyword}'")
                                             locators.nth(i).click(timeout=500)
-                                            time.sleep(0.2) # Short wait for animation
+                                            time.sleep(1.0) # Short wait for animation
                                     except Exception:
                                         pass # Ignore click failures (e.g., covered element)
                         except Exception:
@@ -86,7 +87,7 @@ class GeminiService:
                     # ---------------------------------------------------------
 
                     # Wait a bit more for any animations/lazy loading
-                    time.sleep(2)
+                    time.sleep(4)
                     
                     # Capture optimized screenshot (JPEG + layout focused)
                     # Clip to top 4000px
