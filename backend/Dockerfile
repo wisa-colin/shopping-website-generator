@@ -3,7 +3,7 @@ FROM python:3.13-slim
 
 # 2. 시스템 패키지 설치 (Root 권한으로 실행됨)
 # Playwright와 Chromium 실행에 필요한 필수 라이브러리들입니다.
-RUN apt-get update && apt-get install -y \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing && apt-get install -y \
     wget \
     gnupg \
     libnss3 \
