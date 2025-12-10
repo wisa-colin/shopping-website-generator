@@ -50,7 +50,7 @@ class GeminiService:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
                 # Create new page with extended viewport (4000px) to render content
-                page = browser.new_page(viewport={"width": 1920, "height": 4000})
+                page = browser.new_page(viewport={"width": 1920, "height": 3000})
                 
                 try:
                     print(f"[{datetime.now()}] Navigating to: {url}")
@@ -90,11 +90,12 @@ class GeminiService:
                     time.sleep(4)
                     
                     # Capture optimized screenshot (JPEG + layout focused)
-                    # Clip to top 4000px
+                    # Clip to top 3000px
                     screenshot = page.screenshot(
                         type="jpeg",
                         quality=70,
-                        clip={"x": 0, "y": 0, "width": 1920, "height": 4000}
+                        clip={"x": 0, "y": 0, "width": 1920, "height": 3000}
+                        timeout=60000
                     )
                     
                     try:
