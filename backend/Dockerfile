@@ -16,7 +16,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing && apt-get insta
     libxcomposite1 \
     libxdamage1 \
     libxfixes3 \
-    librandr2 \
+    libxrandr2 \
     libgbm-dev \
     libasound2 \
     libgtk-3-0 \
