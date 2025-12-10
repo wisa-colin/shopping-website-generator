@@ -94,7 +94,7 @@ class GeminiService:
                     screenshot = page.screenshot(
                         type="jpeg",
                         quality=70,
-                        clip={"x": 0, "y": 0, "width": 1920, "height": 3000}
+                        clip={"x": 0, "y": 0, "width": 1920, "height": 3000},
                         timeout=60000
                     )
                     
