@@ -8,14 +8,19 @@ if sys.platform == 'win32':
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict # [스크린샷]dict추가
 import uvicorn
 import os
 from dotenv import load_dotenv
 import uuid
+# [스크린샷] 응답 추가
+from fastapi.responses import Response
 
 # Load environment variables
 load_dotenv()
+
+# [스크린샷] 전역캐시 : {uuid: bytes_data}
+SCREENSHOT_CACHE: Dict[str, bytes] ={}
 
 # Import services
 from services.gemini_service import gemini_service
@@ -108,6 +113,14 @@ async def delete_site(site_id: str):
     if not deleted:
         raise HTTPException(status_code=404, detail="Site not found")
     return {"message": "Site deleted successfully"}
+
+# [스크린샷] 엔드포인트 추가
+@app.get("/screenshot/{file_id}")
+async def get_screenshot(file_id: str):
+    screenshot_data = SCREENSHOT_CACHE.get(file_id)
+    if not screenshot_data:
+        raise HTTPException(status_code=404, detail="Screenshot not found or expired from cache")
+    return Response(content=screenshot_data, media_type="image/jpeg")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

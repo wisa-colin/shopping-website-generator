@@ -8,6 +8,9 @@ import requests
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+# [스크린샷] 캐시 호출
+from main import SCREENSHOT_CACHE
+import uuid
 
 class GeminiService:
     def __init__(self):
@@ -42,7 +45,7 @@ class GeminiService:
     def _capture_screenshot_sync(self, url: str) -> Optional[bytes]:
         """Synchronous implementation of screenshot capture"""
         from playwright.sync_api import sync_playwright
-        
+
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
@@ -93,13 +96,19 @@ class GeminiService:
                         clip={"x": 0, "y": 0, "width": 1920, "height": 4000}
                     )
                     
-                    # Save locally for debugging
                     try:
-                        with open("debug_screenshot.jpg", "wb") as f:
-                            f.write(screenshot)
-                        print(f"[{datetime.now()}] Saved debug screenshot to 'debug_screenshot.jpg'")
+                        # [스크린샷] 전역캐시 추가 및 로그에 추가
+                        file_id = str(uuid.uuid4())
+                        SCREENSHOT_CACHE[file_id] = screenshot
+                        print(f"[{datetime.now()}] Screenshot ID: {file_id}. Access URL: /screenshot/{file_id}")
                     except Exception as e:
-                        print(f"[{datetime.now()}] Failed to save debug screenshot: {e}")
+                        print(f"[{datetime.now()}] Failed to cache screenshot : {e}")
+                    # Save locally for debugging
+                    #     with open("debug_screenshot.jpg", "wb") as f:
+                    #         f.write(screenshot)
+                    #     print(f"[{datetime.now()}] Saved debug screenshot to 'debug_screenshot.jpg'")
+                    # except Exception as e:
+                    #     print(f"[{datetime.now()}] Failed to save debug screenshot: {e}")
                     
                     print(f"[{datetime.now()}] Screenshot captured: {len(screenshot)} bytes (JPEG/4000px)")
                     return screenshot
@@ -325,7 +334,7 @@ class GeminiService:
             # Hybrid or Vision Mode
             reference_section = f"""
 ## � 레퍼런스 분석 (Vision/Hybrid)
-⚠️ **필수**: 첨부된 **스크린샷**을 분석하여 디자인 스타일을 완벽하게 복제하십시오.
+⚠️ **필수**: 첨부된 **스크린샷**을 분석하여 디자인 스타일을 완벽하게 복제하고 정보영역에 스크린샷 id를 제출하시오.
 **원본 URL**: {reference_url}
 
 **Vision 분석 가이드**:
