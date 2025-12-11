@@ -4,10 +4,12 @@ const LockOverlay: React.FC = () => {
     const [isVisible, setIsVisible] = useState(true);
     const [input, setInput] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
-    const SECRET_CODE = '7777';
+
+    const SECRET_CODE = '7777'; 
+    const CODE_LENGTH = SECRET_CODE.length;
 
     useEffect(() => {
-        // 컴포넌트가 마운트될 때 입력 필드에 자동으로 포커스
+        // 컴포넌트 마운트 및 가시 상태 시 자동 포커스
         if (isVisible && inputRef.current) {
             inputRef.current.focus();
         }
@@ -15,24 +17,30 @@ const LockOverlay: React.FC = () => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
+        
         // 4자리 숫자로만 제한
-        if (value.length <= SECRET_CODE.length && /^\d*$/.test(value)) {
+        if (value.length <= CODE_LENGTH && /^\d*$/.test(value)) {
             setInput(value);
 
             // 4자리가 모두 입력되면 비밀번호 체크
-            if (value.length === SECRET_CODE.length) {
+            if (value.length === CODE_LENGTH) {
                 if (value === SECRET_CODE) {
-                    // 비밀번호 일치 시 오버레이 해제
-                    setIsVisible(false);
+                    setIsVisible(false); // 비밀번호 일치 시 오버레이 해제
                 } else {
-                    // 불일치 시 입력 초기화 (잠시 후)
+                    // 불일치 시 입력 초기화
                     setTimeout(() => {
                         setInput('');
-                    }, 300);
+                    }, 500); 
                 }
             }
         }
     };
+    
+    // 입력 필드의 각 칸에 표시될 값을 계산
+    const inputBoxes = Array(CODE_LENGTH).fill('');
+    input.split('').forEach((char, index) => {
+        inputBoxes[index] = char;
+    });
 
     if (!isVisible) return null;
 
@@ -45,7 +53,7 @@ const LockOverlay: React.FC = () => {
             height: '100vh',
             backgroundColor: '#ffffff',
             display: 'flex',
-            flexDirection: 'column', // Input 필드와 제목을 수직으로 배치
+            flexDirection: 'column', 
             justifyContent: 'center',
             alignItems: 'center',
             zIndex: 99999,
@@ -54,29 +62,62 @@ const LockOverlay: React.FC = () => {
                 fontFamily: 'Inter, sans-serif',
                 fontWeight: 300,
                 fontSize: '2rem',
-                letterSpacing: '0.0em',
                 color: '#333',
-                marginBottom: '20px' // 입력 필드와 간격
+                marginBottom: '40px'
             }}>
                 E-commerce Generator.
             </h1>
+
+            {/* 실제 입력 필드 (투명하게 숨김) */}
             <input
                 ref={inputRef}
-                type="text"
+                type="tel" // 모바일에서 숫자 키패드 유도
                 value={input}
                 onChange={handleInputChange}
-                maxLength={SECRET_CODE.length}
-                placeholder=""
+                maxLength={CODE_LENGTH}
                 style={{
-                    padding: '10px',
-                    fontSize: '1.5rem',
-                    textAlign: 'center',
-                    border: `2px solid ${input.length === SECRET_CODE.length && input !== SECRET_CODE ? 'red' : '#ccc'}`,
-                    borderRadius: '5px',
-                    width: '200px',
-                    outline: 'none'
+                    position: 'absolute', // 가상 박스 위에 겹치도록 배치
+                    opacity: 0,           // 투명하게 숨김
+                    width: '250px',       // 가상 박스 전체 너비
+                    height: '50px',
+                    zIndex: 1,            // 가장 위에 배치하여 이벤트 처리
+                    cursor: 'text'
                 }}
+                autoFocus
             />
+
+            {/* 4개의 가상 입력 박스 (시각적인 요소) */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+                {inputBoxes.map((char, index) => (
+                    <div
+                        key={index}
+                        style={{
+                            width: '50px',
+                            height: '50px',
+                            lineHeight: '50px',
+                            textAlign: 'center',
+                            fontSize: '1.5rem',
+                            border: `2px solid ${
+                                // 4자리 입력 후 실패 시 빨간색 테두리
+                                input.length === CODE_LENGTH && input !== SECRET_CODE
+                                    ? 'red' 
+                                    : // 현재 입력 중인 칸에 포커스 효과
+                                    index === input.length ? '#333' : '#ccc'
+                            }`,
+                            borderRadius: '5px',
+                            backgroundColor: '#f9f9f9',
+                            transition: 'border-color 0.3s'
+                        }}
+                    >
+                        {char}
+                    </div>
+                ))}
+            </div>
+            
+            {/* 비밀번호 입력 실패 메시지 (옵션) */}
+            {input.length === CODE_LENGTH && input !== SECRET_CODE && (
+                <p style={{ color: 'red', marginTop: '10px' }}>Wrong.</p>
+            )}
         </div>
     );
 };
