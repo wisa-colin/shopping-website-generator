@@ -30,7 +30,7 @@ const LockOverlay: React.FC = () => {
                     // 불일치 시 입력 초기화
                     setTimeout(() => {
                         setInput('');
-                    }, 500);
+                    }, 1000);
                 }
             }
         }
