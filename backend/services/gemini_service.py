@@ -57,37 +57,54 @@ class GeminiService:
                     # Navigate with timeout and wait for network idle
                     page.goto(url, wait_until="domcontentloaded", timeout=30000)
                     # page.goto(url, wait_until="networkidle", timeout=30000)
-                    time.sleep(3)
+                    
+                    # [개선 1] 대기 시간 증가: 3초 → 6초 (팝업이 완전히 로드될 시간 확보)
+                    time.sleep(6)
+                    
                     # ---------------------------------------------------------
                     # Attempt to close popups by clicking common text buttons
                     # ---------------------------------------------------------
                     print(f"[{datetime.now()}] Attempting to close popups via click...")
                     # Removed "X" as it causes unintended navigation by clicking links
                     popup_keywords = ["오늘 하루 보지않기", "오늘 하루 보지 않기", "오늘 하루 열지 않음", "닫기", "Close", "창 닫기", "Don't show again"]
-                    
-                    for keyword in popup_keywords:
-                        try:
-                            # Find visible elements containing the keyword
-                            # Use a short timeout to skip quickly if not found
-                            locators = page.get_by_text(keyword)
-                            count = locators.count()
-                            
-                            if count > 0:
-                                # Click found buttons (try mostly visible ones)
-                                for i in range(count):
-                                    try:
-                                        if locators.nth(i).is_visible():
-                                            print(f"[{datetime.now()}] Clicking popup button: '{keyword}'")
-                                            locators.nth(i).click(timeout=500)
-                                            time.sleep(1.0) # Short wait for animation
-                                    except Exception:
-                                        pass # Ignore click failures (e.g., covered element)
-                        except Exception:
-                            pass
+
+                    # [개선 2] 팝업 닫기 시도를 2회 반복 (첫 번째 팝업 뒤에 새 팝업이 나타날 수 있음)
+                    for attempt in range(2):
+                        clicked_any = False
+                        for keyword in popup_keywords:
+                            try:
+                                locators = page.get_by_text(keyword)
+                                count = locators.count()
+                                
+                                if count > 0:
+                                    # Click found buttons (try mostly visible ones)
+                                    for i in range(count):
+                                        try:
+                                            if locators.nth(i).is_visible():
+                                                print(f"[{datetime.now()}] [Attempt {attempt+1}] Clicking popup button: '{keyword}'")
+                                                # [개선 4] force=True로 다른 요소에 가려진 버튼도 클릭
+                                                locators.nth(i).click(timeout=1000, force=True)
+                                                clicked_any = True
+                                                time.sleep(0.5)  # Short wait for animation
+                                        except Exception as e:
+                                            print(f"[{datetime.now()}] Click failed for '{keyword}': {e}")
+                                            pass  # Ignore click failures
+                            except Exception:
+                                pass
+                        
+                        # 클릭 후 새 팝업이 나타날 수 있으므로 잠시 대기
+                        if clicked_any:
+                            print(f"[{datetime.now()}] [Attempt {attempt+1}] Waiting for potential new popups...")
+                            time.sleep(1.5)
+                        else:
+                            # 더 이상 클릭할 팝업이 없으면 반복 종료
+                            if attempt == 0:
+                                print(f"[{datetime.now()}] No popups found on first attempt, trying once more...")
+                            break
                     # ---------------------------------------------------------
 
                     # Wait a bit more for any animations/lazy loading
-                    time.sleep(4)
+                    time.sleep(3)
                     
                     # Capture optimized screenshot (JPEG + layout focused)
                     # Clip to top 3000px
