@@ -49,8 +49,11 @@ class GeminiService:
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
-                # Create new page with extended viewport (4000px) to render content
-                page = browser.new_page(viewport={"width": 1920, "height": 3000})
+                # Create new page with extended viewport and real browser User-Agent
+                page = browser.new_page(
+                    viewport={"width": 1920, "height": 3000},
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                )
                 
                 try:
                     print(f"[{datetime.now()}] Navigating to: {url}")
