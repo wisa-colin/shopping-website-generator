@@ -266,7 +266,6 @@ const InputPage: React.FC = () => {
                                         marginTop: '0.5rem',
                                         fontWeight: 500
                                     }}>
-                                        * 개발자 전용 모드
                                     </p>
                                 </div>
                             )}

@@ -14,7 +14,6 @@ import uuid
 
 class GeminiService:
     def __init__(self):
-        # Get API keys from environment
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables")
@@ -49,7 +48,7 @@ class GeminiService:
         try:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
-                # Create new page with extended viewport and real browser User-Agent
+                # 봇 아닌척 숨겨보기
                 page = browser.new_page(
                     viewport={"width": 1920, "height": 3000},
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -57,21 +56,16 @@ class GeminiService:
                 
                 try:
                     print(f"[{datetime.now()}] Navigating to: {url}")
-                    # Navigate with timeout and wait for network idle
                     page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                    # page.goto(url, wait_until="networkidle", timeout=30000)
-                    
-                    # [개선 1] 대기 시간 증가: 3초 → 6초 (팝업이 완전히 로드될 시간 확보)
+
+                    # 페이지 로드될때까지 대기
                     time.sleep(6)
                     
-                    # ---------------------------------------------------------
-                    # Attempt to close popups by clicking common text buttons
-                    # ---------------------------------------------------------
                     print(f"[{datetime.now()}] Attempting to close popups via click...")
-                    # Removed "X" as it causes unintended navigation by clicking links
+                    # 그지같은 팝업 제거 키워드(x는 너무 텍스트 x들을 클릭해대서 제외)
                     popup_keywords = ["오늘 하루 보지않기", "오늘 하루 보지 않기", "오늘 하루 열지 않음", "닫기", "Close", "창 닫기", "Don't show again"]
 
-                    # [개선 2] 팝업 닫기 시도를 2회 반복 (첫 번째 팝업 뒤에 새 팝업이 나타날 수 있음)
+                    # 팝업 닫기 시도
                     for attempt in range(2):
                         clicked_any = False
                         for keyword in popup_keywords:
@@ -80,37 +74,35 @@ class GeminiService:
                                 count = locators.count()
                                 
                                 if count > 0:
-                                    # Click found buttons (try mostly visible ones)
+                                    # 키워드로 팝업 제거 시도
                                     for i in range(count):
                                         try:
                                             if locators.nth(i).is_visible():
                                                 print(f"[{datetime.now()}] [Attempt {attempt+1}] Clicking popup button: '{keyword}'")
-                                                # [개선 4] force=True로 다른 요소에 가려진 버튼도 클릭
                                                 locators.nth(i).click(timeout=5000, force=True, no_wait_after=True)
                                                 clicked_any = True
-                                                time.sleep(0.5)  # Short wait for animation
+                                                # 클릭 후 잠시 대기
+                                                time.sleep(0.5)
                                         except Exception as e:
                                             print(f"[{datetime.now()}] Click failed for '{keyword}': {e}")
-                                            pass  # Ignore click failures
+                                            pass
                             except Exception:
                                 pass
                         
-                        # 클릭 후 새 팝업이 나타날 수 있으므로 잠시 대기
+                        # 팝업 제거시도 후에 그지같이 또 나올 수 있으니 잠시 대기
                         if clicked_any:
                             print(f"[{datetime.now()}] [Attempt {attempt+1}] Waiting for potential new popups...")
                             time.sleep(1.5)
                         else:
-                            # 더 이상 클릭할 팝업이 없으면 반복 종료
+                            # 더 이상 클릭할거 없으면 반복 종료
                             if attempt == 0:
                                 print(f"[{datetime.now()}] No popups found on first attempt, trying once more...")
                             break
-                    # ---------------------------------------------------------
 
-                    # Wait a bit more for any animations/lazy loading
+                    # 스크린샷 찍기전에 잠시 대기
                     time.sleep(3)
                     
-                    # Capture optimized screenshot (JPEG + layout focused)
-                    # Clip to top 3000px
+                    # 캡쳐 설정
                     screenshot = page.screenshot(
                         type="jpeg",
                         quality=70,
@@ -125,12 +117,6 @@ class GeminiService:
                         print(f"[{datetime.now()}] Screenshot ID: {file_id}. Access URL: /screenshot/{file_id}")
                     except Exception as e:
                         print(f"[{datetime.now()}] Failed to cache screenshot : {e}")
-                    # Save locally for debugging
-                    #     with open("debug_screenshot.jpg", "wb") as f:
-                    #         f.write(screenshot)
-                    #     print(f"[{datetime.now()}] Saved debug screenshot to 'debug_screenshot.jpg'")
-                    # except Exception as e:
-                    #     print(f"[{datetime.now()}] Failed to save debug screenshot: {e}")
                     
                     print(f"[{datetime.now()}] Screenshot captured: {len(screenshot)} bytes (JPEG/4000px)")
                     return screenshot
@@ -169,13 +155,11 @@ class GeminiService:
                 """
             )
             keywords = response.text.strip()
-            # Remove any accidental quotes or newlines
             keywords = keywords.replace('"', '').replace('\n', ' ')
             print(f"[{datetime.now()}] Translated '{product_type}' -> '{keywords}'")
             return keywords
         except Exception as e:
             print(f"[{datetime.now()}] Keyword extraction failed: {e}")
-            # Fallback to simple replacement
             return product_type.replace("천연 재료로 만든 ", "").replace("수제 ", "")
 
     def _clean_html(self, html_content: str) -> str:
@@ -355,8 +339,8 @@ class GeminiService:
         if screenshot_data:
             # Hybrid or Vision Mode
             reference_section = f"""
-## � 레퍼런스 분석 (Vision/Hybrid)
-⚠️ **필수**: 첨부된 **스크린샷**을 분석하여 디자인 스타일을 완벽하게 복제하고 정보영역에 스크린샷 id를 제출하시오.
+## 레퍼런스 분석 (Vision/Hybrid)
+**필수**: 첨부된 **스크린샷**을 분석하여 디자인 스타일을 완벽하게 복제하고 정보영역에 스크린샷 id를 제출하시오.
 **원본 URL**: {reference_url}
 
 **Vision 분석 가이드**:
@@ -390,8 +374,8 @@ class GeminiService:
                 html_content = f"Error: {str(e)}"
 
             reference_section = f"""
-## �📄 레퍼런스 분석 (HTML Code - Smart Filtered)
-⚠️ **필수**: 아래 제공된 **HTML 소스코드**를 분석하여 구조와 스타일을 파악하십시오.
+## 레퍼런스 분석 (HTML Code - Smart Filtered)
+**필수**: 아래 제공된 **HTML 소스코드**를 분석하여 구조와 스타일을 파악하십시오.
 **원본 URL**: {reference_url}
 
 **분석 데이터 (Smart Filtering 적용)**:
@@ -408,8 +392,8 @@ class GeminiService:
         elif mode == 'url_context' and reference_url:
             # URL Context Only Mode
             reference_section = f"""
-## 🌐 레퍼런스 분석 (URL Context)
-⚠️ **필수**: **URL Context 도구(Google Search Grounding)**를 사용하여 해당 사이트의 최신 정보를 직접 조회하고 반영하십시오.
+## 레퍼런스 분석 (URL Context)
+**필수**: **URL Context 도구(Google Search Grounding)**를 사용하여 해당 사이트의 최신 정보를 직접 조회하고 반영하십시오.
 **대상 URL**: {reference_url}
 
 **분석 가이드**:
@@ -452,7 +436,7 @@ class GeminiService:
 
 # 2. 우선순위 (Priority)
 
-⚠️ **최우선**: 사용자 요청사항 "{design_style}"은 반드시 100% 구현하시오.
+**최우선**: 사용자 요청사항 "{design_style}"은 반드시 100% 구현하시오.
 
 | 순위 | 항목 | 설명 |
 |:---:|------|------|
@@ -475,11 +459,11 @@ class GeminiService:
 
 # 4. 디자인 시스템
 
-## 🎯 사용자 요청 최우선
+## 사용자 요청 최우선
 **사용자 요청사항 "{design_style}"이 있다면 → 그 요청을 100% 따르시오.**
 - hero 이미지에 대한 요청이 없을 경우 단일 full width의 hero는 최대한 피하십시오.
 
-## 📐 기본 레이아웃 (사용자 요청이 없거나 애매할 때)
+## 기본 레이아웃 (사용자 요청이 없거나 애매할 때)
 사용자가 특정 레이아웃을 지정하지 않았다면, 다음 중 **창의적으로 선택**:
 
 1. **멀티 배너형** - W컨셉, 무신사 스타일 (배너 3~5개 가로 배열)
@@ -487,7 +471,7 @@ class GeminiService:
 3. **매거진형** - 에디토리얼 느낌, 큰 이미지 + 텍스트 조합
 4. **카드 중심형** - 상품 카드가 주를 이루는 깔끔한 그리드
 
-⚠️ **주의**: 사용자가 명시적으로 요청하지 않는 한, 단순히 큰 hero 이미지 하나만 있는 레이아웃은 피하시오.
+**주의**: 사용자가 명시적으로 요청하지 않는 한, 단순히 큰 hero 이미지 하나만 있는 레이아웃은 피하시오.
 
 ## 필수 요소
 - **컬러**: 일관된 팔레트 (레퍼런스 있으면 동일 색상)
@@ -495,7 +479,7 @@ class GeminiService:
 - **인터랙션**: 부드럽고 화려한 마이크로 애니메이션 필수
 - **호버**: 버튼, 카드, 이미지에 세련된 효과
 
-## 🎠 기술적 구현 가이드 (오류 방지 필수)
+## 기술적 구현 가이드 (오류 방지 필수)
 1. **Swiper.js를 쓸 경우 (캐러셀) 안전 구현**:
    - `loop: true` 옵션 사용 시 반드시 **슬라이드 개수를 충분히(최소 4개 이상)** 확보하십시오. (복제된 슬라이드 부족 오류 방지)
    - Swiper 초기화(`new Swiper(...)`)는 반드시 `<body>` 닫는 태그 직전의 `<script>` 안에서 수행하십시오.
