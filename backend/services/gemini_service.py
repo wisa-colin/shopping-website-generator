@@ -83,7 +83,7 @@ class GeminiService:
                                             if locators.nth(i).is_visible():
                                                 print(f"[{datetime.now()}] [Attempt {attempt+1}] Clicking popup button: '{keyword}'")
                                                 # [개선 4] force=True로 다른 요소에 가려진 버튼도 클릭
-                                                locators.nth(i).click(timeout=1000, force=True)
+                                                locators.nth(i).click(timeout=5000, force=True)
                                                 clicked_any = True
                                                 time.sleep(0.5)  # Short wait for animation
                                         except Exception as e:
