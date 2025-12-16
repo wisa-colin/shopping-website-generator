@@ -83,7 +83,7 @@ class GeminiService:
                                             if locators.nth(i).is_visible():
                                                 print(f"[{datetime.now()}] [Attempt {attempt+1}] Clicking popup button: '{keyword}'")
                                                 # [개선 4] force=True로 다른 요소에 가려진 버튼도 클릭
-                                                locators.nth(i).click(timeout=5000, force=True)
+                                                locators.nth(i).click(timeout=5000, force=True, no_wait_after=True)
                                                 clicked_any = True
                                                 time.sleep(0.5)  # Short wait for animation
                                         except Exception as e:
@@ -357,10 +357,11 @@ class GeminiService:
 **원본 URL**: {reference_url}
 
 **Vision 분석 가이드**:
-1. **레이아웃 & 배치**: 헤더, 배너 위치, 카드 그리드 구조를 시각적으로 파악하십시오.
+1. **레이아웃 & 배치**: 헤더, 배너 위치, 카드 그리드 구조, 카드 모서리 디자인, 카드 내부 구조 등을 시각적으로 파악하십시오.
 2. **스타일**: 여백, 비율, 폰트 분위기를 확인하십시오.
 3. **구현 규칙**:
    - 스크린샷과 **90% 이상 동일한 레이아웃** 구현
+   - 특히 hero 이미지는 최대한 넓은 width의 이미지를 피하십시오.
    - 팝업/모달은 **무시하고** 본문 디자인만 구현
    - 잘린 하단부는 **자연스럽게 확장**하여 완성 (Footer 필수)
 """
@@ -473,7 +474,7 @@ class GeminiService:
 
 ## 🎯 사용자 요청 최우선
 **사용자 요청사항 "{design_style}"이 있다면 → 그 요청을 100% 따르시오.**
--(단일 hero를 원하면 단일 hero로, 미니멀을 원하면 미니멀로)
+- hero 이미지에 대한 요청이 없을 경우 단일 full width의 hero는 최대한 피하십시오.
 
 ## 📐 기본 레이아웃 (사용자 요청이 없거나 애매할 때)
 사용자가 특정 레이아웃을 지정하지 않았다면, 다음 중 **창의적으로 선택**:
@@ -483,7 +484,7 @@ class GeminiService:
 3. **매거진형** - 에디토리얼 느낌, 큰 이미지 + 텍스트 조합
 4. **카드 중심형** - 상품 카드가 주를 이루는 깔끔한 그리드
 
-⚠️ **주의**: 사용자가 명시적으로 요청하지 않는 한, 단순히 큰 이미지 하나만 있는 레이아웃은 피하시오.
+⚠️ **주의**: 사용자가 명시적으로 요청하지 않는 한, 단순히 큰 hero 이미지 하나만 있는 레이아웃은 피하시오.
 
 ## 필수 요소
 - **컬러**: 일관된 팔레트 (레퍼런스 있으면 동일 색상)
@@ -492,10 +493,11 @@ class GeminiService:
 - **호버**: 버튼, 카드, 이미지에 세련된 효과
 
 ## 🎠 기술적 구현 가이드 (오류 방지 필수)
-1. **Swiper.js (캐러셀) 안전 구현**:
+1. **Swiper.js를 쓸 경우 (캐러셀) 안전 구현**:
    - `loop: true` 옵션 사용 시 반드시 **슬라이드 개수를 충분히(최소 4개 이상)** 확보하십시오. (복제된 슬라이드 부족 오류 방지)
    - Swiper 초기화(`new Swiper(...)`)는 반드시 `<body>` 닫는 태그 직전의 `<script>` 안에서 수행하십시오.
    - `pagination`이나 `navigation` 요소가 HTML에 실제로 존재하는지 확인하십시오.
+   - 이외에 다른 라이브러리가 가능할 경우 사용하여 다양한 인터랙션 캐러샐을 시도합니다.
 2. **페이지 완성도**:
    - 코드가 중간에 잘리지 않게 하십시오.
    - 반드시 `<footer`> 태그로 끝나야 합니다.
