@@ -16,29 +16,29 @@ class GeminiService:
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment variables")
+            raise ValueError("GEMINI_API_KEY not found")
         
         self.unsplash_access_key = os.getenv("UNSPLASH_ACCESS_KEY")
         if not self.unsplash_access_key:
-            print("WARNING: UNSPLASH_ACCESS_KEY not found, will use fallback images")
+            print("UNSPLASH_ACCESS_KEY not found, will use fallback(loremflickr) images")
         
-        # Initialize new genai client
+        # 객체 시동걸기
         self.client = genai.Client(api_key=api_key)
         
-        # Get model name from environment or use default (Vision 지원 모델)
+        # 모델 선택, 3.0을 별도로 사용하고 실패 시 2.5로 사용
         self.model_id = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         print(f"Using Gemini model: {self.model_id}")
         
-        # Rate limiting
+        # api 호출 간격 제한
         self.last_request_time = 0
-        self.min_request_interval = 1.0  # seconds
+        self.min_request_interval = 60.0  
         
-        # Playwright browser instance (lazy init)
+        # Playwright browser lazy initialization
         self._playwright = None
         self._browser = None
     
     async def _capture_screenshot(self, url: str) -> Optional[bytes]:
-        """Capture a screenshot of the given URL using Playwright (Sync version in thread)"""
+        """Capture a screenshot of the given URL using Playwright"""
         return await asyncio.get_event_loop().run_in_executor(None, self._capture_screenshot_sync, url)
 
     def _capture_screenshot_sync(self, url: str) -> Optional[bytes]:
@@ -51,7 +51,7 @@ class GeminiService:
                 # 봇 아닌척 숨겨보기
                 page = browser.new_page(
                     viewport={"width": 1920, "height": 3000},
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.7499.41 Safari/537.36"
                 )
                 
                 try:
@@ -143,7 +143,7 @@ class GeminiService:
         """Use Gemini to extract English search keywords from product description"""
         try:
             response = self.client.models.generate_content(
-                model=self.model_id,
+                model="gemini-2.5-flash",
                 contents=f"""
                 Translate this product description into 2-3 simple English keywords for stock photo search.
                 Input: "{product_type}"
@@ -160,7 +160,7 @@ class GeminiService:
             return keywords
         except Exception as e:
             print(f"[{datetime.now()}] Keyword extraction failed: {e}")
-            return product_type.replace("천연 재료로 만든 ", "").replace("수제 ", "")
+            return "beautiful"
 
     def _clean_html(self, html_content: str) -> str:
         """
@@ -299,7 +299,7 @@ class GeminiService:
             product_type: Type of product for the website
             reference_url: Reference website URL for design inspiration
             design_style: User's design style preferences
-            mode: 'vision' (screenshot + Gemini Vision), 'url_context', or 'none'
+            mode: 'vision' (screenshot + Gemini url_context), 'url_context', or 'none'
         """
         print(f"[{datetime.now()}] Received generation request for: {product_type}")
         print(f"[{datetime.now()}] Design style (user request): {design_style}")
@@ -307,22 +307,29 @@ class GeminiService:
         
         self._check_rate_limits()
 
-        # Capture screenshot if vision or hybrid mode and URL provided
+        # vision 또는 hybrid 모드라면 캡쳐 실행
         screenshot_data = None
+        effective_mode = mode  # 실제 사용할 모드 (폴백 시 변경됨)
+        
         if (mode == 'vision' or mode == 'hybrid') and reference_url and reference_url.strip():
             screenshot_data = await self._capture_screenshot(reference_url)
+            
+            # 스크린샷 캡쳐 실패 시 url_context로 자동 폴백
+            if not screenshot_data:
+                print(f"[{datetime.now()}] Screenshot capture failed, falling back to url_context mode")
+                effective_mode = 'url_context'
 
-        # Fetch Unsplash images
-        unsplash_images = self._get_unsplash_images(product_type, count=8)
+        # unsplash 이미지url 담기
+        unsplash_images = self._get_unsplash_images(product_type, count=12)
         
-        # Build image instructions
+        # 가져온 이미지url을 적절히 알아서 넣음
         if unsplash_images:
             image_instruction = f"""
         IMAGE REQUIREMENTS - USE THESE UNSPLASH URLS:
         You MUST use these pre-fetched Unsplash image URLs in your HTML:
         {chr(10).join([f'        - {url}' for url in unsplash_images])}
         
-        Use different images for hero, product gallery, testimonials, etc.
+        Use different images for swipe banner, product gallery, testimonials, etc.
         All images are landscape-oriented and professional quality.
         CRITICAL: Use ONLY these URLs, do not generate or modify them.
         """
@@ -335,34 +342,51 @@ class GeminiService:
         
         # Build reference section based on mode
         html_content = ""
-        
-        if screenshot_data:
-            # Hybrid or Vision Mode
-            reference_section = f"""
-## 레퍼런스 분석 (Vision/Hybrid)
-**필수**: 첨부된 **스크린샷**을 분석하여 디자인 스타일을 완벽하게 복제하고 정보영역에 스크린샷 id를 제출하시오.
-**원본 URL**: {reference_url}
 
-**Vision 분석 가이드**:
-1. **레이아웃 & 배치**: 헤더, 배너 위치, 카드 그리드 구조, 카드 모서리 디자인, 카드 내부 구조 등을 시각적으로 파악하십시오.
+        # Vision 모드(스크린샷 찍었을 경우 전달하는 프롬프트)
+        if screenshot_data:
+            reference_section = f"""
+## 레퍼런스 분석(hybrid/vision 모드)
+**필수**: 
+1. 첨부된 **스크린샷**을 완벽하게 분석하여 디자인 스타일을 완벽하게 복제(특히 메인 배너 영역)하시오.
+2. 첨부된 **스크린샷**이 비어있는 화면이거나 정상적인 웹사이트라고 판단되지 않을 경우 최대한 사용자의 디자인 의견을 따르고 화려하고 부드러운 인터랙션이 가득한 사이트를 제작하시오.
+**레퍼런스 URL**: {reference_url}
+**스크린샷 분석 가이드**:
+1. **레이아웃 & 배치**: 헤더, 배너 위치, 카드 그리드 구조, 카드 모서리 라운드, 카드 내부 구조 등을 시각적으로 파악하십시오.
 2. **스타일**: 여백, 비율, 폰트 분위기를 확인하십시오.
 3. **구현 규칙**:
    - 스크린샷과 **90% 이상 동일한 레이아웃** 구현
-   - 특히 hero 이미지는 최대한 넓은 width의 이미지를 피하십시오.
+   - Hero section은 최대한 full-width 형태를 **피하고** 스크린샷과 동일한 구조로 구현
    - 팝업/모달은 **무시하고** 본문 디자인만 구현
-   - 잘린 하단부는 **자연스럽게 확장**하여 완성 (Footer 필수)
+   - 잘린 하단부는 **자연스럽게 추가 확장(최소 400px이상)**하여 완성(Footer 필수)
 """
             if mode == 'hybrid':
-                 reference_section += "\n- **URL Context**: 추가로 제공되는 URL Context 도구를 사용하여 텍스트/데이터의 정확성을 보완하십시오."
+                 reference_section += "\n- **url_context**: 제공되는 url_context tool을 반드시 사용하여 최신 텍스트/데이터의 분위기와 인터랙션등의 분석을 통해 정확성을 보완하십시오."
 
-        elif mode == 'html' and reference_url:
-            # HTML Parsing Mode (Smart Filtering)
+        # url_context 모드 (또는 vision/hybrid에서 스크린샷 실패 시)
+        elif effective_mode == 'url_context' and reference_url:
+            fallback_notice = ""
+            if mode != effective_mode:
+                fallback_notice = f"\n**[자동 폴백]**: 원래 '{mode}' 모드였으나 스크린샷 캡쳐 실패로 url_context 모드로 전환됨.\n"
+            
+            reference_section = f"""
+## 레퍼런스 분석 (URL Context){fallback_notice}
+**필수**: **URL Context 도구(Gemini URL Context)**를 사용하여 해당 사이트의 최신 정보를 직접 조회하고 반영하십시오.
+**URL Context 참고 url** : https://ai.google.dev/gemini-api/docs/url-context.md.txt?_gl=1*o39wau*_up*MQ..*_ga*MjUyMjU5Ny4xNzY1OTQ5ODk3*_ga_P1DBVKWT6V*czE3NjU5NDk4OTckbzEkZzAkdDE3NjU5NDk4OTckajYwJGwwJGgxNjUwNDQwNTM5
+**대상 URL**: {reference_url}
+**분석 가이드**:
+1. 사이트의 구조, 판매 상품, 브랜드 컬러 등을 도구를 통해 파악하십시오.
+2. 최대한 파악된 이미지, 배너, 컬러등의 반영된 정보로 레이아웃을 구성하십시오.
+"""
+
+        # html 모드 (HTML 소스코드 정제해서 전달)
+        elif effective_mode == 'html' and reference_url:
             html_content = ""
             try:
                 print(f"[{datetime.now()}] Fetching raw HTML for Smart Filtering from: {reference_url}")
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(None, lambda: requests.get(reference_url, timeout=10, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.7499.41 Safari/537.36'
                 }))
                 
                 if response.status_code == 200:
@@ -374,44 +398,25 @@ class GeminiService:
                 html_content = f"Error: {str(e)}"
 
             reference_section = f"""
-## 레퍼런스 분석 (HTML Code - Smart Filtered)
-**필수**: 아래 제공된 **HTML 소스코드**를 분석하여 구조와 스타일을 파악하십시오.
+## 레퍼런스 분석 (html 모드)
+**필수**: 아래 제공된 **HTML 소스코드**를 분석하여 구조와 스타일을 최대한 파악하십시오.
 **원본 URL**: {reference_url}
-
-**분석 데이터 (Smart Filtering 적용)**:
+**분석 데이터(분석에 불필요한 코드는 정제)**:
 ```html
 {html_content}
 ```
-
 **분석 가이드**:
-1. **구조 파악**: `SVG_ICON` 위치, 헤더/푸터 구조, 클래스명을 통해 레이아웃을 파악하십시오.
+1. **구조 파악**: `SVG_ICON`위치, 헤더/푸터 구조, 클래스명, 배너형태, CSS 등을 통해 레이아웃을 파악하십시오.
 2. **스타일 추론**: 남겨진 외부 스크립트/CSS 링크와 인라인 스타일을 참고하십시오.
 3. **내용 채우기**: 메타 태그와 남겨진 텍스트를 바탕으로 정확한 컨텐츠를 생성하십시오.
 """
 
-        elif mode == 'url_context' and reference_url:
-            # URL Context Only Mode
-            reference_section = f"""
-## 레퍼런스 분석 (URL Context)
-**필수**: **URL Context 도구(Google Search Grounding)**를 사용하여 해당 사이트의 최신 정보를 직접 조회하고 반영하십시오.
-**대상 URL**: {reference_url}
-
-**분석 가이드**:
-1. 사이트의 구조, 판매 상품, 브랜드 컬러 등을 도구를 통해 파악하십시오.
-2. 시각적 정보(스크린샷)가 없으므로 도구 조회 결과에 의존하여 레이아웃을 구성하십시오.
-"""
-
-        elif reference_url and reference_url.strip():
-            # General Fallback
-            reference_section = f"""
-## 레퍼런스 분석 (General)
-**URL**: {reference_url}
-해당 URL의 스타일을 참고하여 디자인하십시오.
-"""
+        # 레퍼런스 URL 없음
         else:
             reference_section = """
 ## 기본 디자인 참조
 - 레퍼런스 없음 → Awwwards E-commerce 수준 퀄리티 적용
+- 사용자의 요청에 따라 자유로우며 부드러운 인터랙션이 적용된 디자인을 구현
 """
 
         prompt = f"""
@@ -441,8 +446,8 @@ class GeminiService:
 | 순위 | 항목 | 설명 |
 |:---:|------|------|
 -| 1 | **사용자 요청사항** | "{design_style}" - 무조건 반영 |
--| 2 | 레퍼런스 스타일 | 80-90% 유사하게 구현 |
--| 3 | 기본 디자인 표준 | Awwwards 수준 |
+-| 2 | 레퍼런스 스타일 | 90%이상 유사하게 구현 |
+-| 3 | 기본 디자인 표준 | Awwwards 수준에 부드러운 인터랙션이 적용된 고퀄리티 디자인 |
 
 ---
 
@@ -461,21 +466,20 @@ class GeminiService:
 
 ## 사용자 요청 최우선
 **사용자 요청사항 "{design_style}"이 있다면 → 그 요청을 100% 따르시오.**
-- hero 이미지에 대한 요청이 없을 경우 단일 full width의 hero는 최대한 피하십시오.
+- Hero section에 대한 요청이 없을 경우 단일 full width의 hero는 최대한 피하십시오.
 
 ## 기본 레이아웃 (사용자 요청이 없거나 애매할 때)
 사용자가 특정 레이아웃을 지정하지 않았다면, 다음 중 **창의적으로 선택**:
 
-1. **멀티 배너형** - W컨셉, 무신사 스타일 (배너 3~5개 가로 배열)
+1. **멀티 배너형** - W컨셉, 무신사 스타일 (배너 3~5개 가로 배열로 무한 캐러셀)
 2. **그리드 갤러리형** - Pinterest, 29cm 스타일 (다양한 크기 카드 배치)
 3. **매거진형** - 에디토리얼 느낌, 큰 이미지 + 텍스트 조합
 4. **카드 중심형** - 상품 카드가 주를 이루는 깔끔한 그리드
-
-**주의**: 사용자가 명시적으로 요청하지 않는 한, 단순히 큰 hero 이미지 하나만 있는 레이아웃은 피하시오.
+5. **자유 제작형** - 학습된 스타일 중 가장 창의적이고 독창적인 스타일
 
 ## 필수 요소
 - **컬러**: 일관된 팔레트 (레퍼런스 있으면 동일 색상)
-- **폰트**: 상품/분위기에 어울리는 Google Fonts
+- **폰트**: 상품/분위기에 어울리는 Google Fonts 중 하나
 - **인터랙션**: 부드럽고 화려한 마이크로 애니메이션 필수
 - **호버**: 버튼, 카드, 이미지에 세련된 효과
 
@@ -520,7 +524,7 @@ class GeminiService:
         
         if screenshot_data:
             # Add screenshot as image part
-            print(f"[{datetime.now()}] Adding screenshot to Gemini request (Vision mode)")
+            print(f"[{datetime.now()}] Adding screenshot to Gemini request")
             contents.append(Part.from_bytes(data=screenshot_data, mime_type="image/png"))
             contents.append(prompt)
         else:
@@ -528,9 +532,10 @@ class GeminiService:
         
         # Configure tools - Enable URL Context based on mode
         tools = []
-        if (mode == 'hybrid' or mode == 'url_context') and reference_url and reference_url.strip():
+        # effective_mode 기준으로 url_context tool 활성화 (폴백 케이스 포함)
+        if (effective_mode == 'hybrid' or effective_mode == 'url_context') and reference_url and reference_url.strip():
             tools.append({"url_context": {}})
-            print(f"[{datetime.now()}] Enabled URL Context tool for {mode} analysis: {reference_url}")
+            print(f"[{datetime.now()}] Enabled URL Context tool for {effective_mode} analysis: {reference_url}")
         
         # Retry logic
         max_retries = 2
@@ -560,10 +565,19 @@ class GeminiService:
                     config=GenerateContentConfig(**config_params)
                 )
                 
-                # Log URL Context metadata if available
-                if hasattr(response.candidates[0], 'url_context_metadata'):
-                    metadata = response.candidates[0].url_context_metadata
-                    print(f"[{datetime.now()}] URL Context metadata: {metadata}")
+                # Log metadata (Grounding / URL Context)
+                if response.candidates:
+                    candidate = response.candidates[0]
+                    
+                    # 1. Check Grounding Metadata (Common for Search/URL)
+                    if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
+                        print(f"[{datetime.now()}] 🔍 Grounding Metadata Found: {candidate.grounding_metadata}")
+                    
+                    # 2. Check URL Context Metadata (Specific)
+                    if hasattr(candidate, 'url_context_metadata'):
+                        meta_val = candidate.url_context_metadata
+                        if meta_val:
+                            print(f"[{datetime.now()}] 🔗 URL Context Metadata: {meta_val}")
                 
                 print(f"[{datetime.now()}] Received response from Gemini")
                 
