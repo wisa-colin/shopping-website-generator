@@ -47,10 +47,19 @@ class GeminiService:
 
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
-                # 봇 아닌척 숨겨보기
+                # Render/Docker 환경 메모리 최적화 옵션 추가
+                browser = p.chromium.launch(
+                    headless=True, 
+                    args=[
+                        '--no-sandbox', 
+                        '--disable-setuid-sandbox', 
+                        '--disable-dev-shm-usage', # 메모리 부족 방지 핵심 옵션
+                        '--disable-gpu'
+                    ]
+                )
+                # 봇 아닌척 숨겨보기 + 메모리 절약을 위해 viewport 높이 조절
                 page = browser.new_page(
-                    viewport={"width": 1920, "height": 3000},
+                    viewport={"width": 1920, "height": 2000},
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.7499.41 Safari/537.36"
                 )
                 
