@@ -7,6 +7,7 @@ import base64
 import requests
 import asyncio
 from datetime import datetime
+import re
 from typing import Dict, Any, List, Optional
 # [스크린샷] 캐시 호출
 from main import SCREENSHOT_CACHE
@@ -67,49 +68,32 @@ class GeminiService:
                     print(f"[{datetime.now()}] Navigating to: {url}")
                     page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-                    # 페이지 로드될때까지 대기
-                    time.sleep(6)
-                    
-                    print(f"[{datetime.now()}] Attempting to close popups via click...")
-                    # 그지같은 팝업 제거 키워드(x는 너무 텍스트 x들을 클릭해대서 제외)
-                    popup_keywords = ["오늘 하루 보지않기", "오늘 하루 보지 않기", "오늘 하루 열지 않음", "닫기", "Close", "창 닫기", "Don't show again"]
-
-                    # 팝업 닫기 시도
-                    for attempt in range(2):
-                        clicked_any = False
-                        for keyword in popup_keywords:
-                            try:
-                                locators = page.get_by_text(keyword)
-                                count = locators.count()
-                                
-                                if count > 0:
-                                    # 키워드로 팝업 제거 시도
-                                    for i in range(count):
-                                        try:
-                                            if locators.nth(i).is_visible():
-                                                print(f"[{datetime.now()}] [Attempt {attempt+1}] Clicking popup button: '{keyword}'")
-                                                locators.nth(i).click(timeout=5000, force=True, no_wait_after=True)
-                                                clicked_any = True
-                                                # 클릭 후 잠시 대기
-                                                time.sleep(0.5)
-                                        except Exception as e:
-                                            print(f"[{datetime.now()}] Click failed for '{keyword}': {e}")
-                                            pass
-                            except Exception:
-                                pass
-                        
-                        # 팝업 제거시도 후에 그지같이 또 나올 수 있으니 잠시 대기
-                        if clicked_any:
-                            print(f"[{datetime.now()}] [Attempt {attempt+1}] Waiting for potential new popups...")
-                            time.sleep(1.5)
-                        else:
-                            # 더 이상 클릭할거 없으면 반복 종료
-                            if attempt == 0:
-                                print(f"[{datetime.now()}] No popups found on first attempt, trying once more...")
-                            break
-
-                    # 스크린샷 찍기전에 잠시 대기
+                    # 잠시 대기
                     time.sleep(3)
+                    
+                    print(f"[{datetime.now()}] Quick popup check...")
+                    # 키워드 통합 (정규표현식 활용하여 한 번에 검색)
+                    combined_keywords = "오늘 하루 보지않기|오늘 하루 보지 않기|오늘 하루 열지 않음|닫기|Close|창 닫기|Don't show again"
+                    
+                    try:
+                        # 텍스트가 포함된 버튼이나 요소를 한 번에 찾음
+                        locators = page.get_by_role("button").filter(has_text=re.compile(combined_keywords, re.IGNORECASE))
+                        count = locators.count()
+                        if count > 0:
+                            for i in range(min(count, 3)): # 최대 3개까지만 시도
+                                try:
+                                    if locators.nth(i).is_visible(timeout=1000):
+                                        locators.nth(i).click(timeout=2000, force=True)
+                                        print(f"[{datetime.now()}] Closed a popup.")
+                                except:
+                                    continue
+                            # 팝업을 닫았다면 레이아웃 정돈을 위해 아주 잠깐 대기
+                            time.sleep(1)
+                    except Exception as e:
+                        print(f"[{datetime.now()}] Popup bypass: {e}")
+
+                    # 스크린샷 찍기 전 대기 시간 단축 (3초 -> 1초)
+                    time.sleep(1)
                     
                     # 캡쳐 설정
                     screenshot = page.screenshot(
