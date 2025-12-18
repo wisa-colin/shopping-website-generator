@@ -76,23 +76,27 @@ class GeminiService:
                     combined_keywords = "오늘 하루 보지않기|오늘 하루 보지 않기|오늘 하루 열지 않음|닫기|Close|창 닫기|Don't show again"
                     
                     try:
-                        # 텍스트가 포함된 버튼이나 요소를 한 번에 찾음
-                        locators = page.get_by_role("button").filter(has_text=re.compile(combined_keywords, re.IGNORECASE))
+                        # [수정] 버튼 태그뿐만 아니라 텍스트가 포함된 모든 요소를 검색 (더 넓은 범위)
+                        locators = page.get_by_text(re.compile(combined_keywords, re.IGNORECASE))
                         count = locators.count()
                         if count > 0:
-                            for i in range(min(count, 3)): # 최대 3개까지만 시도
+                            print(f"[{datetime.now()}] Found {count} potential popup elements.")
+                            for i in range(min(count, 5)): # 최대 5개까지 시도
                                 try:
-                                    if locators.nth(i).is_visible(timeout=1000):
-                                        locators.nth(i).click(timeout=2000, force=True)
-                                        print(f"[{datetime.now()}] Closed a popup.")
+                                    # 요소가 실제로 클릭 가능한지 확인 후 클릭
+                                    target = locators.nth(i)
+                                    if target.is_visible(timeout=1000):
+                                        # force=True로 가려진 요소도 클릭 시도
+                                        target.click(timeout=2000, force=True)
+                                        print(f"[{datetime.now()}] Clicked element {i+1}/{count}")
                                 except:
                                     continue
-                            # 팝업을 닫았다면 레이아웃 정돈을 위해 아주 잠깐 대기
+                            # 팝업을 닫았다면 레이아웃 정돈을 위해 잠깐 대기
                             time.sleep(1)
                     except Exception as e:
                         print(f"[{datetime.now()}] Popup bypass: {e}")
 
-                    # 스크린샷 찍기 전 대기 시간 단축 (3초 -> 1초)
+                    # 스크린샷 찍기 전 대기
                     time.sleep(1)
                     
                     # 캡쳐 설정
