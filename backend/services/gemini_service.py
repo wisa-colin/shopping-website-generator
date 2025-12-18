@@ -68,15 +68,16 @@ class GeminiService:
                     print(f"[{datetime.now()}] Navigating to: {url}")
                     page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-                    # [원복] 대기 시간을 다시 6초로 늘려 팝업이 완전히 뜨길 기다림
-                    time.sleep(6)
+                    # 1. 충분히 대기 (배포 서버의 느린 JS 엔진 로딩 시간 확보)
+                    print(f"[{datetime.now()}] Waiting 10s for full site loading and JS initialization...")
+                    time.sleep(10)
                     
-                    print(f"[{datetime.now()}] Attempting to close popups...")
+                    # 2. 스크린샷 촬영 직전에 팝업 제거 시도
+                    print(f"[{datetime.now()}] Final popup check before screenshot...")
                     popup_keywords = ["오늘 하루 보지않기", "오늘 하루 보지 않기", "오늘 하루 열지 않음", "닫기", "Close", "창 닫기", "Don't show again"]
                     
                     try:
                         for keyword in popup_keywords:
-                            # 예전에 잘 작동하던 개별 키워드 검색 방식
                             locators = page.get_by_text(keyword)
                             count = locators.count()
                             if count > 0:
@@ -84,17 +85,16 @@ class GeminiService:
                                     try:
                                         target = locators.nth(i)
                                         if target.is_visible(timeout=1000):
-                                            print(f"[{datetime.now()}] Found popup with text '{keyword}', clicking...")
-                                            # 부모 요소 중 버튼이 있다면 버튼을 클릭하는 시도 (더 안정적)
-                                            target.click(timeout=2000, force=True)
+                                            print(f"[{datetime.now()}] Found popup '{keyword}', closing now.")
+                                            # 가장 확실한 클릭 (부모 버튼까지 고려)
+                                            target.evaluate("el => (el.closest('button') || el.closest('a') || el).click()")
                                             time.sleep(0.5)
                                     except: continue
-                        time.sleep(1)
                     except Exception as e:
-                        print(f"[{datetime.now()}] Error during popup close: {e}")
+                        print(f"[{datetime.now()}] Popup bypass error: {e}")
 
-                    # 스크린샷 찍기 전 최종 대기
-                    time.sleep(2)
+                    # 3. 팝업 닫힌 직후 레이아웃 정돈만 잠깐 기다리고 캡쳐
+                    time.sleep(1.5)
                     
                     # 캡쳐 설정
                     screenshot = page.screenshot(
