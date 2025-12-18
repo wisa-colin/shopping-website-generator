@@ -68,36 +68,33 @@ class GeminiService:
                     print(f"[{datetime.now()}] Navigating to: {url}")
                     page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-                    # 잠시 대기
-                    time.sleep(3)
+                    # [원복] 대기 시간을 다시 6초로 늘려 팝업이 완전히 뜨길 기다림
+                    time.sleep(6)
                     
-                    print(f"[{datetime.now()}] Quick popup check...")
-                    # 키워드 통합 (정규표현식 활용하여 한 번에 검색)
-                    combined_keywords = "오늘 하루 보지않기|오늘 하루 보지 않기|오늘 하루 열지 않음|닫기|Close|창 닫기|Don't show again"
+                    print(f"[{datetime.now()}] Attempting to close popups...")
+                    popup_keywords = ["오늘 하루 보지않기", "오늘 하루 보지 않기", "오늘 하루 열지 않음", "닫기", "Close", "창 닫기", "Don't show again"]
                     
                     try:
-                        # [수정] 버튼 태그뿐만 아니라 텍스트가 포함된 모든 요소를 검색 (더 넓은 범위)
-                        locators = page.get_by_text(re.compile(combined_keywords, re.IGNORECASE))
-                        count = locators.count()
-                        if count > 0:
-                            print(f"[{datetime.now()}] Found {count} potential popup elements.")
-                            for i in range(min(count, 5)): # 최대 5개까지 시도
-                                try:
-                                    # 요소가 실제로 클릭 가능한지 확인 후 클릭
-                                    target = locators.nth(i)
-                                    if target.is_visible(timeout=1000):
-                                        # force=True로 가려진 요소도 클릭 시도
-                                        target.click(timeout=2000, force=True)
-                                        print(f"[{datetime.now()}] Clicked element {i+1}/{count}")
-                                except:
-                                    continue
-                            # 팝업을 닫았다면 레이아웃 정돈을 위해 잠깐 대기
-                            time.sleep(1)
+                        for keyword in popup_keywords:
+                            # 예전에 잘 작동하던 개별 키워드 검색 방식
+                            locators = page.get_by_text(keyword)
+                            count = locators.count()
+                            if count > 0:
+                                for i in range(count):
+                                    try:
+                                        target = locators.nth(i)
+                                        if target.is_visible(timeout=1000):
+                                            print(f"[{datetime.now()}] Found popup with text '{keyword}', clicking...")
+                                            # 부모 요소 중 버튼이 있다면 버튼을 클릭하는 시도 (더 안정적)
+                                            target.click(timeout=2000, force=True)
+                                            time.sleep(0.5)
+                                    except: continue
+                        time.sleep(1)
                     except Exception as e:
-                        print(f"[{datetime.now()}] Popup bypass: {e}")
+                        print(f"[{datetime.now()}] Error during popup close: {e}")
 
-                    # 스크린샷 찍기 전 대기
-                    time.sleep(1)
+                    # 스크린샷 찍기 전 최종 대기
+                    time.sleep(2)
                     
                     # 캡쳐 설정
                     screenshot = page.screenshot(
